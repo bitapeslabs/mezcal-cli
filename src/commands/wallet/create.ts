@@ -1,9 +1,11 @@
 import fs from "fs";
 import { z } from "zod";
 import inquirer from "inquirer";
-import { firstTaprootAddress, generateWallet } from "@/lib/wallet";
+import { firstTaprootAddress, generateWallet } from "@/lib/crypto/wallet";
 import path from "path";
+import chalk from "chalk";
 import { Command } from "@/commands/base";
+import { WALLET_PATH } from "@/lib/consts";
 
 export default class WalletCreate extends Command {
   /* optional positional arg: where to write the wallet file */
@@ -17,7 +19,7 @@ export default class WalletCreate extends Command {
     args: string[],
     opts: Record<string, unknown>
   ): Promise<void> {
-    const target = path.resolve(process.cwd(), "wallet.json");
+    const target = WALLET_PATH;
 
     if (fs.existsSync(target)) {
       this.error(
@@ -66,10 +68,16 @@ export default class WalletCreate extends Command {
     }
 
     /* 7. Done – print address & hint */
-    this.log(`\n✓ Wallet saved to ${target}`);
-    this.log(`✓ Your Address: ${firstTaprootAddress(wallet.data.root)}\n`);
+    this.log(chalk.green(`✓ Wallet saved to ${target}`));
     this.log(
-      `✓ Your Mnemonic (write this down! you will need it to recover your wallet): ${mnemonic}`
+      `Your Address: ${chalk.yellow.bold(
+        firstTaprootAddress(wallet.data.root)
+      )}`
+    );
+    this.log(
+      `Your Mnemonic ${chalk.gray(
+        `(write this down! you will need it to recover your wallet)`
+      )}: ${chalk.yellow.bold(mnemonic)}`
     );
     this.log(
       "Keep your password safe – you will need it to unlock the wallet.\n"

@@ -1,19 +1,14 @@
 import chalk from "chalk";
-import {} from "sade";
-
-type Flag = {
-  char: string;
-  description: string;
-};
+import { ZodTypeAny } from "zod";
 
 type Flags = {
-  [key: string]: Flag;
+  [key: string]: ZodTypeAny;
 };
 
 export class Command {
-  static description: string;
-  static examples: string[];
-  static flags: Flags;
+  public static description: string;
+  public static examples: string[];
+  public static flags: Flags = {};
 
   error(message: string): never {
     console.error(`${chalk.red("✖ ERROR:")} ${message}`);
