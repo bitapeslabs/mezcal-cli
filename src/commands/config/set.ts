@@ -6,7 +6,7 @@ import { Command } from "@/commands/base";
 import { CONFIG_PATH } from "@/lib/consts";
 
 const UrlSchema = z.string().url("Must be a valid URL");
-const NetworkSchema = z.enum(["mainnet", "testnet", "regtest"]);
+const NetworkSchema = z.enum(["bitcoin", "testnet", "regtest"]);
 
 function loadConfig(): Record<string, string> {
   if (fs.existsSync(CONFIG_PATH)) {
@@ -38,7 +38,7 @@ export default class ConfigSet extends Command {
     electrum: z.string().optional().describe("Electrum API URL"),
     dunes: z.string().optional().describe("Dunes RPC URL"),
     network: NetworkSchema.optional().describe(
-      "Network (mainnet | testnet | regtest)"
+      "Network (bitcoin | testnet | regtest)"
     ),
   };
 

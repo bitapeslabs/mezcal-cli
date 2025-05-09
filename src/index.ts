@@ -27,6 +27,7 @@ Object.entries(commands).forEach(([name, CommandClass]) => {
     try {
       await commandInstance.run(positionals, opts);
     } catch (err) {
+      console.log(err);
       commandInstance.error?.(err instanceof Error ? err.message : String(err));
     }
   });

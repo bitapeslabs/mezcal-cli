@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { networks } from "bitcoinjs-lib";
 
 export const CONFIG_PATH = path.resolve(process.cwd(), "config.json");
 export const WALLET_PATH = path.resolve(process.cwd(), "wallet.json");
@@ -28,4 +29,7 @@ export const ELECTRUM_API_URL =
 export const DUNES_RPC_URL =
   configOverrides.DUNES_RPC_URL ?? defaults.DUNES_RPC_URL;
 
-export const NETWORK = configOverrides.NETWORK ?? defaults.NETWORK;
+export const NETWORK =
+  networks[
+    (configOverrides.NETWORK ?? defaults.NETWORK) as keyof typeof networks
+  ];

@@ -1,11 +1,13 @@
 import fs from "fs";
 import path from "path";
 import chalk from "chalk";
-
+import { NETWORK } from "@/lib/consts";
 import { Command } from "@/commands/base";
 import { SavedWallet } from "@/lib/crypto/wallet";
 import { bip32, firstTaprootAddress } from "@/lib/crypto/wallet";
 import { GIT_ISSUE_URL, WALLET_PATH } from "@/lib/consts";
+import { getWallet } from "../shared";
+import { isBoxedError } from "@/lib/utils/boxed";
 
 export default class WalletInfo extends Command {
   static override description =
@@ -15,34 +17,17 @@ export default class WalletInfo extends Command {
   public override async run(): Promise<void> {
     const target = WALLET_PATH;
 
-    if (!fs.existsSync(target)) {
-      this.error(`No wallet found at ${target}`);
-      return;
-    }
+    const walletResponse = await getWallet(this);
 
-    const walletFile = await fs.promises.readFile(target, "utf8");
-    let parsed: SavedWallet;
-
-    try {
-      parsed = JSON.parse(walletFile);
-    } catch {
-      this.error(
-        `Failed to parse wallet file – corrupted or invalid format. Please create an issue here: ${GIT_ISSUE_URL}`
-      );
-      return;
-    }
-
-    if (!parsed.bip86AccountZeroXPUB) {
-      this.error(
-        `No xpub found in wallet file! Please create an issue here: ${GIT_ISSUE_URL}`
-      );
+    if (isBoxedError(walletResponse)) {
+      this.error(`Failed to fetch wallet: ${walletResponse.message}`);
       return;
     }
 
     try {
-      const root = bip32.fromBase58(parsed.bip86AccountZeroXPUB);
-      const address = firstTaprootAddress(root, true);
-      this.log(`Your Address: ${chalk.yellow.bold(address)}`);
+      this.log(
+        `Your Address: ${chalk.yellow.bold(walletResponse.data.address)}`
+      );
     } catch (err) {
       console.log(err);
       this.error(

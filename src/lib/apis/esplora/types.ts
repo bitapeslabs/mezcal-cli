@@ -15,3 +15,15 @@ export type EsploraAddressResponse = {
   chain_stats: EsploraAddressStats;
   mempool_stats: EsploraAddressStats;
 };
+
+export type EsploraUtxo = {
+  txid: string;
+  vout: number;
+  value: number;
+  status: {
+    confirmed: boolean;
+    block_height?: number;
+    block_hash?: string;
+    block_time?: number;
+  };
+};

@@ -65,14 +65,17 @@ export default class WalletRecover extends Command {
     ]);
 
     // Step 3: Generate wallet from mnemonic
-    const wallet = await generateWallet({ from_mnemonic: mnemonic, password });
+    const walletResponse = await generateWallet({
+      from_mnemonic: mnemonic,
+      password,
+    });
 
-    if (wallet.status === false) {
-      this.error(`Failed to recover wallet: ${wallet.errorType}`);
+    if (walletResponse.status === false) {
+      this.error(`Failed to recover wallet: ${walletResponse.errorType}`);
       return;
     }
 
-    const { root, walletJson } = wallet.data;
+    const { walletJson, signer } = walletResponse.data;
 
     try {
       await fs.promises.writeFile(target, JSON.stringify(walletJson, null, 2), {
@@ -85,7 +88,7 @@ export default class WalletRecover extends Command {
 
     // Step 4: Show success output
     this.log(chalk.green(`✓ Wallet recovered and saved to ${target}`));
-    this.log(`Your Address: ${chalk.yellow.bold(firstTaprootAddress(root))}`);
+    this.log(`Your Address: ${chalk.yellow.bold(firstTaprootAddress(signer))}`);
     this.log(
       chalk.gray(
         "You can reprint your mnemonic any time with `dunes wallet show`"

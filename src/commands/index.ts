@@ -7,6 +7,7 @@ import ConfigShow from "./config/show";
 import Config from "./config/index";
 import { Command } from "./base";
 import Balance from "./balance";
+import Etch from "./etch";
 
 export const commands: Record<string, typeof Command> = {
   "wallet:create": WalletCreate,
@@ -15,6 +16,7 @@ export const commands: Record<string, typeof Command> = {
   "wallet:info": WalletShowAddress,
   "config:set": ConfigSet,
   "config:show": ConfigShow,
+  etch: Etch,
   balance: Balance,
   config: Config, // Alias for config:show
 };

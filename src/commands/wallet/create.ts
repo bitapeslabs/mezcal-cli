@@ -55,7 +55,7 @@ export default class WalletCreate extends Command {
       this.error(`Failed to create wallet: ${wallet.errorType}`);
       return;
     }
-    const { mnemonic, walletJson } = wallet.data;
+    const { signer, mnemonic, walletJson } = wallet.data;
 
     /* 6. write to file (default ./wallet.json) */
     try {
@@ -69,11 +69,7 @@ export default class WalletCreate extends Command {
 
     /* 7. Done – print address & hint */
     this.log(chalk.green(`✓ Wallet saved to ${target}`));
-    this.log(
-      `Your Address: ${chalk.yellow.bold(
-        firstTaprootAddress(wallet.data.root)
-      )}`
-    );
+    this.log(`Your Address: ${chalk.yellow.bold(firstTaprootAddress(signer))}`);
     this.log(
       `Your Mnemonic ${chalk.gray(
         `(write this down! you will need it to recover your wallet)`
