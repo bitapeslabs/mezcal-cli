@@ -1,6 +1,9 @@
 import fs from "fs";
 import path from "path";
 import { networks } from "bitcoinjs-lib";
+import { fileURLToPath } from "url";
+
+// Use the current working directory to resolve config/wallet paths
 
 export const CONFIG_PATH = path.resolve(process.cwd(), "config.json");
 export const WALLET_PATH = path.resolve(process.cwd(), "wallet.json");

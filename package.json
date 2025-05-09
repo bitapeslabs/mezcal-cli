@@ -5,7 +5,14 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "node esbuild.config.mjs",
-    "buildpkg": "node esbuild.config.mjs && pkg ./dist/index.js -t node18 --output ./target/dunes",
+    "create-node-executable-windows": "node -e \"require('fs').copyFileSync(process.execPath, './target/dunes.exe')\"",
+    "create-node-executable-linux": "cp $(command -v node) ./target/dunes",
+    "linux-install": "sudo mv ./target/dunes /usr/local/bin/dunes && sudo chmod +x /usr/local/bin/dunes",
+    "inject-blob-windows": "npx postject ./target/dunes.exe NODE_SEA_BLOB ./target/sea-prep.blob^ --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2",
+    "inject-blob-linux": "npx postject ./target/dunes NODE_SEA_BLOB ./target/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2",
+    "buildpkg-windows": "npm run buildpkg && npm run create-node-executable-windows && npm run inject-blob-windows",
+    "buildpkg-linux": "npm run buildpkg && npm run create-node-executable-linux && npm run inject-blob-linux && npm run linux-install",
+    "buildpkg": "node esbuild.config.mjs && node --experimental-sea-config sea-config.json",
     "runpkg": "npm run buildpkg && ./target/dunes",
     "dev": "npm run build && node dist/index.js",
     "start": "node dist/index.js"

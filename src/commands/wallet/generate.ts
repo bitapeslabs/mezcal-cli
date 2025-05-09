@@ -19,7 +19,7 @@ export default class WalletGenerate extends Command {
   static override examples = ["$ dunes wallet generate"];
 
   public override async run(): Promise<void> {
-    const wallet = await getWallet(this);
+    const wallet = await getWallet(this, true);
 
     const walletExists = wallet.status;
 

@@ -22,15 +22,18 @@ enum SharedCommandErrors {
 }
 
 export const getWallet = async (
-  command: Command
+  command: Command,
+  ignoreErrors?: boolean
 ): Promise<BoxedResponse<SavedWallet, SharedCommandErrors>> => {
   const target = WALLET_PATH;
 
   if (!fs.existsSync(target)) {
-    command.error(
-      `No wallet found at ${target}\n` +
-        chalk.gray(`You can create one with: dunes wallet create`)
-    );
+    if (!ignoreErrors) {
+      command.error(
+        `No wallet found at ${target}\n` +
+          chalk.gray(`You can create one with: dunes wallet generate`)
+      );
+    }
     return new BoxedError(SharedCommandErrors.NoWalletFound);
   }
   const walletFile = await fs.promises.readFile(target, "utf8");
