@@ -33,3 +33,14 @@ export const NETWORK =
   networks[
     (configOverrides.NETWORK ?? defaults.NETWORK) as keyof typeof networks
   ];
+
+export const DEFAULT_ERROR =
+  "An unknown error occurred. Please report it at " +
+  GIT_ISSUE_URL +
+  " with code:";
+
+export let CHOSEN_WALLET = 0;
+
+export const setChosenWallet = (wallet: number) => {
+  CHOSEN_WALLET = wallet;
+};

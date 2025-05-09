@@ -22,8 +22,8 @@ export default class Balance extends Command {
     }
 
     try {
-      const address = walletResponse.data.address;
-      this.log(chalk.gray(`Your Wallet Address:  ${chalk.gray(address)}\n`));
+      const address = walletResponse.data.currentAddress;
+      this.log(chalk.gray(`Current address:  ${chalk.gray(address)}\n`));
 
       const spinner = ora("Fetching balances...").start();
 

@@ -12,7 +12,7 @@ import { Command } from "@/commands/base";
 import {
   decryptWalletWithPassword,
   SavedWallet,
-  firstTaprootAddress,
+  getCurrentTaprootAddress,
 } from "@/lib/crypto/wallet";
 import {
   esplora_getutxos,
@@ -22,14 +22,9 @@ import {
 } from "@/lib/apis/esplora";
 import { getDunestoneTransaction } from "@/lib/dunes";
 import { getWitnessUtxo } from "@/lib/crypto/wallet";
-import { WALLET_PATH, GIT_ISSUE_URL, NETWORK } from "@/lib/consts";
+import { DEFAULT_ERROR } from "@/lib/consts";
 import { isBoxedError } from "@/lib/utils/boxed";
 import { getDecryptedWalletFromPassword, getWallet } from "../shared";
-
-const DEFAULT_ERROR =
-  "An unknown error occurred. Please report it at " +
-  GIT_ISSUE_URL +
-  " with code:";
 
 type Step =
   | "divisibility"
@@ -271,7 +266,7 @@ export default class Etch extends Command {
     const dunestoneJson = { etching };
 
     const txBuilderResponse = getDunestoneTransaction(dunestoneJson, {
-      address: wallet.address,
+      address: wallet.currentAddress,
       walletSigner,
       sendDunes: true, // or false if just sending BTC
     });

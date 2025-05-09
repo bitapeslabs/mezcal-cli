@@ -6,7 +6,7 @@ import chalk from "chalk";
 
 import { Command } from "@/commands/base";
 import {
-  firstTaprootAddress,
+  getCurrentTaprootAddress,
   generateWallet,
   isValidMnemonic,
 } from "@/lib/crypto/wallet";
@@ -88,7 +88,9 @@ export default class WalletRecover extends Command {
 
     // Step 4: Show success output
     this.log(chalk.green(`✓ Wallet recovered and saved to ${target}`));
-    this.log(`Your Address: ${chalk.yellow.bold(firstTaprootAddress(signer))}`);
+    this.log(
+      `Your Address: ${chalk.yellow.bold(getCurrentTaprootAddress(signer))}`
+    );
     this.log(
       chalk.gray(
         "You can reprint your mnemonic any time with `dunes wallet show`"

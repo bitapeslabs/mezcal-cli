@@ -54,7 +54,9 @@ export const getWallet = async (
 export const getDecryptedWalletFromPassword = async (
   command: Command,
   wallet: SavedWallet
-): Promise<BoxedResponse<DecryptedWallet, SharedCommandErrors>> => {
+): Promise<
+  BoxedResponse<DecryptedWallet & { password: string }, SharedCommandErrors>
+> => {
   const { password } = await inquirer.prompt<{ password: string }>([
     {
       type: "password",
@@ -86,7 +88,7 @@ export const getDecryptedWalletFromPassword = async (
       );
       return new BoxedError(SharedCommandErrors.DecryptionFailed);
     }
-    return new BoxedSuccess(decrypted);
+    return new BoxedSuccess({ ...decrypted, password });
   } catch (err: unknown) {
     command.error("Failed to decrypt wallet. Please check your password.");
     return new BoxedError(SharedCommandErrors.DecryptionFailed);

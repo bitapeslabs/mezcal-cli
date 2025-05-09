@@ -4,7 +4,7 @@ import chalk from "chalk";
 import { NETWORK } from "@/lib/consts";
 import { Command } from "@/commands/base";
 import { SavedWallet } from "@/lib/crypto/wallet";
-import { bip32, firstTaprootAddress } from "@/lib/crypto/wallet";
+import { bip32, getCurrentTaprootAddress } from "@/lib/crypto/wallet";
 import { GIT_ISSUE_URL, WALLET_PATH } from "@/lib/consts";
 import { getWallet } from "../shared";
 import { isBoxedError } from "@/lib/utils/boxed";
@@ -15,8 +15,6 @@ export default class WalletInfo extends Command {
   static override examples = ["$ dunes wallet info"];
 
   public override async run(): Promise<void> {
-    const target = WALLET_PATH;
-
     const walletResponse = await getWallet(this);
 
     if (isBoxedError(walletResponse)) {
@@ -26,7 +24,7 @@ export default class WalletInfo extends Command {
 
     try {
       this.log(
-        `Your Address: ${chalk.yellow.bold(walletResponse.data.address)}`
+        `Your Address: ${chalk.yellow.bold(walletResponse.data.currentAddress)}`
       );
     } catch (err) {
       console.log(err);

@@ -3,19 +3,27 @@ import { BIP32Factory, BIP32Interface } from "bip32";
 import * as bitcoin from "bitcoinjs-lib";
 import * as crypto from "crypto";
 import { ecc } from "@/lib/crypto/ecc.js";
-import { NETWORK } from "@/lib/consts";
+import { NETWORK, setChosenWallet } from "@/lib/consts";
 import { ECPairFactory } from "ecpair";
 import { EsploraUtxo } from "@/lib/apis/esplora/types.js";
 import { BoxedResponse, BoxedError, BoxedSuccess } from "../utils/boxed.js";
 import { tweakKey } from "bitcoinjs-lib/src/payments/bip341"; // ⚠ internal
 import { toXOnly } from "bitcoinjs-lib/src/psbt/bip371";
+import { CHOSEN_WALLET } from "@/lib/consts";
 import { get } from "http";
+import { esplora_getaddressbalance } from "../apis/esplora/index.js";
 export const bip32 = BIP32Factory(ecc);
 export const ECPair = ECPairFactory(ecc);
 
 bitcoin.initEccLib?.(ecc);
 
-const PATH = "m/86'/0'/0'"; // BIP86
+enum WalletError {
+  IndexError = "IndexError",
+}
+
+const getPath = (index?: number): string => {
+  return `m/86'/0'/0'/0/${index ?? CHOSEN_WALLET}`;
+}; // BIP86
 
 //GLOBAL TYPES
 export type WalletSigner = {
@@ -47,7 +55,7 @@ export function getSigner(mnemonic: string): WalletSigner {
     throw new Error("Failed to create root key from seed");
   }
 
-  const xprv = root.derivePath(PATH);
+  const xprv = root.derivePath(getPath());
   const xpub = xprv.neutered();
 
   return { xprv, xpub, seed, root };
@@ -56,7 +64,7 @@ export function getSigner(mnemonic: string): WalletSigner {
 export function toTaprootSigner(signer: WalletSigner) {
   const { root: rootKey } = signer;
 
-  const childNode = rootKey.derivePath(PATH);
+  const childNode = rootKey.derivePath(getPath());
   const childNodeXOnlyPubkey = toXOnly(Buffer.from(childNode.publicKey));
 
   const tweakedChildNode = childNode.tweak(
@@ -76,7 +84,7 @@ export function toTaprootSigner(signer: WalletSigner) {
 export function getWitnessUtxo(utxo: EsploraUtxo, signer: WalletSigner) {
   const { root: rootKey } = signer;
 
-  const childNode = rootKey.derivePath(PATH);
+  const childNode = rootKey.derivePath(getPath());
 
   const childNodeXOnlyPubkey = toXOnly(Buffer.from(childNode.publicKey));
 
@@ -100,10 +108,13 @@ export function getWitnessUtxo(utxo: EsploraUtxo, signer: WalletSigner) {
   };
 }
 
-export function firstTaprootAddress(signer: WalletSigner): string {
+export function getCurrentTaprootAddress(
+  signer: WalletSigner,
+  index?: number
+): string {
   const rootKey = signer.root;
 
-  const childNode = rootKey.derivePath(PATH);
+  const childNode = rootKey.derivePath(getPath(index ?? CHOSEN_WALLET));
 
   const childNodeXOnlyPubkey = toXOnly(Buffer.from(childNode.publicKey));
 
@@ -163,7 +174,9 @@ export function decryptWalletWithPassword(
 
 export type SavedWallet = {
   encryptedMnemonic: EncryptedMnemonic;
-  address: string;
+  currentWalletIndex: number;
+  generatedIndex: number;
+  currentAddress: string;
 };
 
 export async function isValidMnemonic(mnemonic: string): Promise<boolean> {
@@ -174,6 +187,77 @@ export async function isValidMnemonic(mnemonic: string): Promise<boolean> {
     return false;
   }
 }
+
+export function switchWallet(
+  walletJson: SavedWallet,
+  password: string,
+  index: number
+): BoxedResponse<DecryptedWallet & { walletJson: SavedWallet }, WalletError> {
+  const { currentWalletIndex, generatedIndex } = walletJson;
+  if (index === currentWalletIndex) {
+    return new BoxedError(WalletError.IndexError, "Already at this index");
+  }
+  if (index > generatedIndex + 1) {
+    return new BoxedError(
+      WalletError.IndexError,
+      "Can only create one wallet at a time"
+    );
+  }
+
+  if (index < 0) {
+    return new BoxedError(WalletError.IndexError, "Index cannot be negative");
+  }
+
+  const decryptedWallet = decryptWalletWithPassword(
+    walletJson.encryptedMnemonic,
+    password
+  );
+  const { mnemonic, signer } = decryptedWallet;
+
+  setChosenWallet(index);
+
+  return new BoxedSuccess({
+    mnemonic,
+    signer: signer,
+    walletJson: {
+      ...walletJson,
+      currentWalletIndex: index,
+      generatedIndex: index > generatedIndex ? index : generatedIndex,
+      currentAddress: getCurrentTaprootAddress(signer),
+    },
+  });
+}
+
+type BalanceEntry = {
+  address: string;
+  btc_balance: number;
+};
+
+export const viewAddresses = async (
+  signer: WalletSigner,
+  walletJson: SavedWallet
+): Promise<BalanceEntry[]> => {
+  const { generatedIndex } = walletJson;
+  const balance: BalanceEntry[] = [];
+
+  for (let i = 0; i <= generatedIndex; i++) {
+    let address = getCurrentTaprootAddress(signer, i);
+
+    let btcBalanceResponse = await esplora_getaddressbalance(address);
+
+    if (btcBalanceResponse.status === false) {
+      throw new Error(
+        `Failed to fetch BTC balance: ${btcBalanceResponse.message}`
+      );
+    }
+    let btcBalance = btcBalanceResponse.data;
+
+    balance.push({ address, btc_balance: btcBalance ?? 0 });
+  }
+
+  return balance;
+};
+
 export async function generateWallet(opts: {
   from_mnemonic?: string;
   password: string;
@@ -188,7 +272,9 @@ export async function generateWallet(opts: {
       signer: signer,
       walletJson: {
         encryptedMnemonic: encryptMnemonic(mnemonic, opts.password),
-        address: firstTaprootAddress(signer),
+        currentWalletIndex: 0,
+        generatedIndex: 0,
+        currentAddress: getCurrentTaprootAddress(signer),
       },
     });
   } catch (err: unknown) {
