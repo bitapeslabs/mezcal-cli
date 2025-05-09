@@ -1,5 +1,10 @@
 import { DUNES_RPC_URL } from "@/lib/consts";
-import { DunesBalanceResponse, DunesFetchError, DunesUtxo } from "./types";
+import {
+  DuneUtxoBalance,
+  DunesBalanceResponse,
+  DunesFetchError,
+  DunesUtxo,
+} from "./types";
 import { BoxedResponse, BoxedSuccess, BoxedError } from "@/lib/utils/boxed";
 
 export async function dunesrpc_getdunebalances(
@@ -39,4 +44,23 @@ export async function dunesrpc_getutxos(
 
   const response = Array.isArray(json) ? json : [];
   return new BoxedSuccess(response as DunesUtxo[]);
+}
+
+export async function dunesrpc_getDuneUtxoBalances(
+  address: string
+): Promise<BoxedResponse<DuneUtxoBalance[], DunesFetchError>> {
+  const url = `${DUNES_RPC_URL}/dunes/utxos/balances/${address}`;
+  const res = await fetch(url);
+
+  if (!res.ok) {
+    return new BoxedError(
+      DunesFetchError.UnknownError,
+      `Failed to fetch UTXO balances from ${url}: ${res.statusText}`
+    );
+  }
+
+  const json = await res.json();
+  const response = Array.isArray(json) ? json : [];
+
+  return new BoxedSuccess(response as DuneUtxoBalance[]);
 }

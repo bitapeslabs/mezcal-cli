@@ -263,35 +263,18 @@ export default class Etch extends Command {
       etching.terms = terms;
     }
 
-    const dunestoneJson = { etching };
-
-    const txBuilderResponse = getDunestoneTransaction(dunestoneJson, {
-      address: wallet.currentAddress,
-      walletSigner,
-      sendDunes: true, // or false if just sending BTC
+    const duneTx = await getDunestoneTransaction(walletSigner, {
+      partialDunestone: { etching },
+      transfers: [],
     });
 
-    if (isBoxedError(txBuilderResponse)) {
-      this.error(txBuilderResponse.message ?? DEFAULT_ERROR + `(etch-1)`);
+    if (isBoxedError(duneTx)) {
+      this.error(duneTx.message ?? DEFAULT_ERROR + `(etch-1)`);
       return;
     }
-
-    const txBuilder = txBuilderResponse.data;
-
-    const buildSpinner = ora("Building transaction...").start();
-    try {
-      await txBuilder.build();
-      buildSpinner.succeed("Transaction built.");
-    } catch (err) {
-      buildSpinner.fail("Failed to build transaction.");
-      this.error(err instanceof Error ? err.message : String(err));
-      return;
-    }
-
     const txSpinner = ora("Broadcasting transaction...").start();
-    const transaction = await txBuilder.finalize();
 
-    let response = await esplora_broadcastTx(transaction.toHex());
+    let response = await esplora_broadcastTx(duneTx.data.toHex());
 
     if (isBoxedError(response)) {
       txSpinner.fail("Failed to broadcast transaction.");

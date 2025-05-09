@@ -42,3 +42,13 @@ export type DunesUtxo = {
   transaction: string | null;
   transaction_spent: string | null;
 };
+
+export interface DuneUtxoBalance {
+  balance: string;
+  utxo: DunesUtxo;
+  dune: Dune;
+}
+
+export type ParsedUtxoBalance = DuneUtxoBalance & {
+  balance: bigint;
+};
