@@ -344,7 +344,7 @@ export class DunestoneTransaction {
     if (this.options.partialDunestone?.mint) {
       dunestone.mint = this.options.partialDunestone.mint;
     }
-    if (edicts) {
+    if (edicts && edicts.length > 0) {
       dunestone.edicts = edicts;
     }
 
@@ -360,10 +360,10 @@ export class DunestoneTransaction {
 
     const data = Buffer.from(json, "utf8");
 
-    if (data.length > 80) {
+    if (data.length > 80 && this.feeOpts) {
       console.log(
         chalk.yellow(
-          `WARNING: Dunestone exceeds 80 bytes, currently only MARA pool supports OP_RETURNS > 80 bytes. This transaction may take a day to be confirmed. There are talks of increasing the BTC OP_RETURN limit currently, show your support here: https://github.com/bitcoin/bitcoin/pull/32359`
+          `\nWARNING: Dunestone exceeds 80 bytes, currently only MARA pool supports OP_RETURNS > 80 bytes. This transaction may take a day to be confirmed. There are talks of increasing the BTC OP_RETURN limit currently, show your support here: https://github.com/bitcoin/bitcoin/pull/32359`
         )
       );
     }
