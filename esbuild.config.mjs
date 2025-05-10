@@ -4,8 +4,11 @@ await build({
   entryPoints: ["src/index.ts"],
   outfile: "dist/index.js",
   bundle: true,
-  format: "cjs", // safe for CLIs
+  format: "cjs",
   platform: "node",
-  target: ["node20"], // ✅ must be one pkg supports
+  target: ["node20"],
   tsconfig: "./tsconfig.json",
+  banner: {
+    js: "#!/usr/bin/env node",
+  },
 });

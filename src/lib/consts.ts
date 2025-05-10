@@ -1,12 +1,14 @@
 import fs from "fs";
 import path from "path";
 import { networks } from "bitcoinjs-lib";
-import { fileURLToPath } from "url";
+import envPaths from "env-paths";
+const paths = envPaths("dunes");
 
 // Use the current working directory to resolve config/wallet paths
+fs.mkdirSync(paths.data, { recursive: true });
 
-export const CONFIG_PATH = path.resolve(process.cwd(), "config.json");
-export const WALLET_PATH = path.resolve(process.cwd(), "wallet.json");
+export const CONFIG_PATH = path.resolve(paths.data, "config.json");
+export const WALLET_PATH = path.resolve(paths.data, "wallet.json");
 export const GIT_ISSUE_URL = "https://github.com/bitapeslabs/dunes-cli/issues";
 
 const defaults = {

@@ -4,28 +4,17 @@ The **dunes-cli** is an interactive command‑line tool for managing your HD wal
 
 ## Installation
 
-1. **Build the Project**  
-   Build with esbuild:
+1. Install [Node.js](https://nodejs.org/) (v18 or higher).
+2. On your command line terminal, run:
 
    ```sh
-   npm run build
+   npm install -g dunes-cli
    ```
 
-   or build the packaged executable:
+   3. Youre all set! You can now use the `dunes` command in your terminal. To view the commands you can call, run
 
    ```sh
-   npm run buildpkg-windows
-   npm run buildpkg-linux
-   ```
-
-2. **Run the CLI**  
-   After building, run:
-   ```sh
-   npm run start
-   ```
-   or
-   ```sh
-   node dist/index.js
+   dunes --help
    ```
 
 ## Command Reference
