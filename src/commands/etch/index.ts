@@ -265,7 +265,6 @@ export default class Etch extends Command {
       }
       etching.terms = terms;
     }
-    const createSpinner = ora("Creating transaction...").start();
 
     const duneTx = await getDunestoneTransaction(walletSigner, {
       partialDunestone: { etching },
@@ -273,12 +272,9 @@ export default class Etch extends Command {
     });
 
     if (isBoxedError(duneTx)) {
-      createSpinner.fail("Failed to create transaction.");
       this.error(duneTx.message ?? DEFAULT_ERROR + `(etch-1)`);
       return;
     }
-
-    createSpinner.succeed("Transaction created.");
 
     const txSpinner = ora("Broadcasting transaction...").start();
 

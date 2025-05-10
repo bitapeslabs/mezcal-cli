@@ -29,6 +29,8 @@ import { getCurrentTaprootAddress } from "@/lib/crypto/wallet";
 import { get } from "http";
 import { DuneUtxoBalance, ParsedUtxoBalance } from "../apis/dunes/types";
 import chalk from "chalk";
+import inquirer from "inquirer";
+import ora from "ora";
 
 function isBTCTransfer(
   transfer: SingularTransfer
@@ -42,8 +44,6 @@ type IFeeOpts = {
 };
 
 export class DunestoneTransaction {
-  private initialized = false;
-
   private MINIMUM_FEE = 500;
   private MINIMUM_DUST = 546;
 
@@ -163,7 +163,9 @@ export class DunestoneTransaction {
       */
       const duneUtxoBalances = this.availableDuneUtxoBalances
         .filter((utxo) => utxo.dune.dune_protocol_id === dune)
-        .sort((a, b) => a.balance - b.balance);
+        .sort((a, b) =>
+          a.balance < b.balance ? -1 : a.balance > b.balance ? 1 : 0
+        );
 
       let accumulated = 0n;
       for (const utxo of duneUtxoBalances) {
@@ -238,7 +240,6 @@ export class DunestoneTransaction {
     await this.calculateFee();
     await this.fetchResources();
     this.fetchUtxos();
-    this.initialized = true;
   }
 
   private getBtcOutputs(): Record<string, number> {
@@ -351,7 +352,7 @@ export class DunestoneTransaction {
     return transactionEdicts;
   }
 
-  private addDunestoneData(edicts?: IEdict[]): boolean {
+  private addDunestoneData(edicts?: IEdict[]): IDunestone | undefined {
     let dunestone: IDunestone = { p: "https://dunes.sh" };
 
     if (this.options.partialDunestone?.etching) {
@@ -370,39 +371,31 @@ export class DunestoneTransaction {
       throw new Error(issue);
     }
     const dunestoneData = parsed.data;
-    if (Object.keys(dunestoneData).length === 1) return false;
+    if (Object.keys(dunestoneData).length === 1) return undefined;
 
     const json = JSON.stringify(dunestoneData);
 
     const data = Buffer.from(json, "utf8");
-
-    if (data.length > 80 && this.feeOpts) {
-      console.log(
-        chalk.yellow(
-          `\nWARNING: Dunestone exceeds 80 bytes, currently only MARA pool supports OP_RETURNS > 80 bytes. This transaction may take a day to be confirmed. There are talks of increasing the BTC OP_RETURN limit currently, show your support here: https://github.com/bitcoin/bitcoin/pull/32359`
-        )
-      );
-    }
 
     const embed = payments.embed({ data: [data] });
     this.psbt.addOutput({
       script: embed.output!,
       value: 0,
     });
-    return true;
+    return dunestoneData;
   }
 
-  public async build(): Promise<number> {
+  public async build(): Promise<[number, IDunestone | undefined]> {
     await this.initialize();
     this.addInputs();
     const btcOutputs = this.getBtcOutputs();
     let hasChange = this.addOutputs(btcOutputs);
 
     const edicts = this.createEdicts(btcOutputs, hasChange);
-    let hasDunestone = this.addDunestoneData(edicts);
+    let dunestone = this.addDunestoneData(edicts);
 
     //If we have a dunestone, we need to add a second output for the opreturn. Otherwise just one for the change
-    return this.utxos.length + (hasDunestone ? 2 : 1);
+    return [this.utxos.length + (dunestone ? 2 : 1), dunestone];
   }
 
   public finalize(): Transaction {
@@ -417,13 +410,13 @@ export class DunestoneTransaction {
   }
 }
 
-type SingularBTCTransfer = {
+export type SingularBTCTransfer = {
   asset: "btc";
   amount: number;
   address: string;
 };
 
-type SingularDuneTransfer = {
+export type SingularDuneTransfer = {
   asset: string;
   amount: bigint;
   address: string;
@@ -447,12 +440,15 @@ export async function getDunestoneTransaction(
   signer: WalletSigner,
   options: DunestoneTransactionOptions
 ): Promise<BoxedResponse<Transaction, string>> {
+  const buildSpin = ora("Creating transaction…").start();
+
   let partialDunestone = {} as PartialDunestone;
 
   if (options.partialDunestone?.etching) {
     const parsed = EtchingSchema.safeParse(options.partialDunestone?.etching);
     if (!parsed.success) {
       const issue = parsed.error.issues[0]?.message || "Invalid Dunestone";
+      buildSpin.stop();
       return new BoxedError("ValidationError", issue);
     }
     partialDunestone["etching"] = parsed.data;
@@ -462,6 +458,8 @@ export async function getDunestoneTransaction(
     const parsed = MintSchema.safeParse(options.partialDunestone?.mint);
     if (!parsed.success) {
       const issue = parsed.error.issues[0]?.message || "Invalid Dunestone";
+      buildSpin.stop();
+
       return new BoxedError("ValidationError", issue);
     }
     partialDunestone["mint"] = parsed.data;
@@ -471,7 +469,34 @@ export async function getDunestoneTransaction(
     ...options,
     partialDunestone,
   });
-  const dummyInputLength = await dummyDunesTx.build();
+  const [dummyInputLength, dummyDunestone] = await dummyDunesTx.build();
+
+  const dunestoneBuffer = Buffer.from(JSON.stringify(dummyDunestone), "utf8");
+  buildSpin.stop();
+
+  if (dunestoneBuffer.length > 80) {
+    const warning = chalk.yellow(
+      `\nWARNING: Dunestone exceeds 80 bytes.\n` +
+        `Only MARA pool currently supports OP_RETURNs over 80 bytes.\n` +
+        `This transaction may take hours or even a day to confirm.\n` +
+        `Proposal to increase the limit: https://github.com/bitcoin/bitcoin/pull/32359\n`
+    );
+    console.log(warning);
+
+    const { proceed } = await inquirer.prompt<{ proceed: boolean }>([
+      {
+        type: "confirm",
+        name: "proceed",
+        message: "Continue anyway?",
+        default: false,
+      },
+    ]);
+
+    if (!proceed) {
+      throw new Error("Transaction cancelled by user.");
+    }
+  }
+
   let dummyTx = dummyDunesTx.finalize();
 
   let feeOpts = {
@@ -481,6 +506,8 @@ export async function getDunestoneTransaction(
   console.log(
     chalk.green(`\n\nCreating transaction with size -> ${feeOpts.vsize} bytes`)
   );
+
+  const finalizeSpin = ora("Finalizing transaction…").start();
 
   const dunestoneTx = new DunestoneTransaction(signer, {
     ...options,
@@ -492,6 +519,6 @@ export async function getDunestoneTransaction(
   });
   await dunestoneTx.build();
   const tx = dunestoneTx.finalize();
-
+  finalizeSpin.succeed("Transaction finalized.");
   return new BoxedSuccess(tx);
 }

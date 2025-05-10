@@ -10,7 +10,10 @@ import { Command } from "./base";
 import Balance from "./balance";
 import Etch from "./etch";
 import WalletSwitch from "./wallet/switch";
-import WalletTransfer from "./wallet/transfer";
+import WalletTransfer from "./transfer";
+import DuneInfo from "./info";
+import DuneHolders from "./holders";
+import Mint from "./mint";
 
 export const commands: Record<string, typeof Command> = {
   wallets: Wallets,
@@ -19,9 +22,12 @@ export const commands: Record<string, typeof Command> = {
   "wallet:recover": WalletRecover,
   "wallet:reveal": WalletShowSeed,
   "wallet:info": WalletShowAddress,
-  "wallet:transfer": WalletTransfer,
+  info: DuneInfo,
+  holders: DuneHolders,
+  transfer: WalletTransfer,
   "config:set": ConfigSet,
   "config:show": ConfigShow,
+  mint: Mint,
   etch: Etch,
   balance: Balance,
   config: Config, // Alias for config:show

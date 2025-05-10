@@ -52,3 +52,16 @@ export interface DuneUtxoBalance {
 export type ParsedUtxoBalance = DuneUtxoBalance & {
   balance: bigint;
 };
+
+// single address + balance
+export interface DuneHolder {
+  address: string;
+  balance: string; // comes back as DECIMAL‑string
+}
+
+export interface DuneHoldersResponse {
+  total_holders: number; // total unique addresses holding >0
+  page: number; // current page (1‑based)
+  limit: number; // page size
+  holders: DuneHolder[];
+}
