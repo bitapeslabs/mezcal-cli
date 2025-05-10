@@ -2,7 +2,7 @@
 
 The **dunes-cli** is an interactive command‑line tool for managing your HD wallet and interacting with Dune assets. It supports wallet generation, recovery, switching addresses, querying balances, transferring funds, minting and etching Dune tokens, configuration management, and more.
 
-## Installation
+## 🚀 Installation
 
 1. Install [Node.js](https://nodejs.org/) (v18 or higher).
 2. On your command line terminal, run:
@@ -11,7 +11,7 @@ The **dunes-cli** is an interactive command‑line tool for managing your HD wal
    npm install -g dunes-cli
    ```
 
-   3. Youre all set! You can now use the `dunes` command in your terminal. To view the commands you can call, run
+3. Youre all set! You can now use the `dunes` command in your terminal. To view the commands you can call, run
 
    ```sh
    dunes --help
