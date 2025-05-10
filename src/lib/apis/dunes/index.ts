@@ -1,5 +1,6 @@
 import { DUNES_RPC_URL } from "@/lib/consts";
 import {
+  Dune,
   DuneUtxoBalance,
   DunesBalanceResponse,
   DunesFetchError,
@@ -63,4 +64,21 @@ export async function dunesrpc_getDuneUtxoBalances(
   const response = Array.isArray(json) ? json : [];
 
   return new BoxedSuccess(response as DuneUtxoBalance[]);
+}
+
+export async function dunesrpc_getduneinfo(
+  protocolId: string
+): Promise<BoxedResponse<Dune, DunesFetchError>> {
+  const url = `${DUNES_RPC_URL}/dunes/etchings/info/${protocolId}`;
+  const res = await fetch(url);
+
+  if (!res.ok) {
+    return new BoxedError(
+      DunesFetchError.UnknownError,
+      `Failed to fetch dune info from ${url}: ${res.statusText}`
+    );
+  }
+
+  const json = await res.json();
+  return new BoxedSuccess(json as Dune);
 }

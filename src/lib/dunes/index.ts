@@ -112,7 +112,8 @@ export class DunestoneTransaction {
   }
 
   private async calculateFee(): Promise<void> {
-    const feeResp = await esplora_getfee();
+    //avoid round trip to esplora if we are just creating the dummy tx
+    const feeResp = this.feeOpts ? await esplora_getfee() : new BoxedSuccess(1);
     const feeRate = isBoxedError(feeResp) ? 1 : feeResp.data;
     //Seee suggestion @ https://github.com/bitcoinjs/bitcoinjs-lib/issues/1566
     let baseFee =
@@ -169,8 +170,9 @@ export class DunestoneTransaction {
         if (accumulated >= this.cumulativeSpendRequirementDunes[dune]) {
           break;
         }
+
         accumulated += utxo.balance;
-        duneUtxos.add(utxo.utxo.id);
+        duneUtxos.add(`${utxo.utxo.transaction}:${utxo.utxo.vout_index}`);
       }
 
       if (accumulated < this.cumulativeSpendRequirementDunes[dune]) {
@@ -190,26 +192,27 @@ export class DunestoneTransaction {
       this.availableUtxos.map((utxo) => [`${utxo.txid}:${utxo.vout}`, utxo])
     );
 
-    //Initialize accumulated with the value of the UTXOs we have to send anyway for the dunes
-    let accumulated = Array.from(duneUtxos).reduce((acc, duneUtxo) => {
-      const utxo = esploraUtxoMap.get(duneUtxo);
-      if (utxo) {
-        acc += utxo.value;
-      } else {
-        throw new Error(`UTXO ${duneUtxo} not found in esplora UTXOs.`);
-      }
-      return acc;
-    }, 0);
-
     const sortedUtxos = [...this.availableUtxos].sort(
       (a, b) => b.value - a.value
     );
+
+    //Add all dune utxos to the utxosToMeetRequirements
+    let accumulated = 0;
+    for (const duneUtxo of duneUtxos) {
+      const utxo = esploraUtxoMap.get(duneUtxo);
+      if (utxo) {
+        accumulated += utxo.value;
+        utxosToMeetRequirements.push(utxo);
+      } else {
+        throw new Error(`UTXO ${duneUtxo} not found in esplora UTXOs.`);
+      }
+    }
+
     for (const utxo of sortedUtxos) {
       if (accumulated >= this.cumulativeSpendRequirementBtc) {
         break;
       }
       if (duneUtxos.has(`${utxo.txid}:${utxo.vout}`)) {
-        utxosToMeetRequirements.push(utxo);
         continue;
       }
       accumulated += utxo.value;
@@ -265,24 +268,34 @@ export class DunestoneTransaction {
     return cumulativeBtcRequirementsPerAddress;
   }
 
-  private addOutputs(btcOutputs: Record<string, number>): void {
-    let totalOutputValue = 0;
-    let totalInputValue = this.utxos.reduce((acc, utxo) => acc + utxo.value, 0);
-    for (const [address, amount] of Object.entries(btcOutputs)) {
-      this.psbt.addOutput({
-        address,
-        value: amount,
-      });
+  private addOutputs(btcOutputs: Record<string, number>): boolean {
+    let hasChange = false;
 
-      totalOutputValue += amount;
-    }
+    let totalOutputValue = Object.values(btcOutputs).reduce(
+      (acc, amount) => acc + amount,
+      0
+    );
+
+    let totalInputValue = this.utxos.reduce((acc, utxo) => acc + utxo.value, 0);
+
     const changeValue = totalInputValue - totalOutputValue - this.fee;
+
+    //Change goes first, so it receives the dunes not in the edicts
     if (changeValue >= this.MINIMUM_DUST) {
+      hasChange = true;
       this.psbt.addOutput({
         address: this.changeAddress,
         value: changeValue,
       });
     }
+
+    for (const [address, amount] of Object.entries(btcOutputs)) {
+      this.psbt.addOutput({
+        address,
+        value: amount,
+      });
+    }
+    return hasChange;
   }
 
   private addInputs(): void {
@@ -292,7 +305,10 @@ export class DunestoneTransaction {
     }
   }
 
-  private createEdicts(btcOutputs: Record<string, number>): IEdict[] {
+  private createEdicts(
+    btcOutputs: Record<string, number>,
+    hasChange: boolean
+  ): IEdict[] {
     //Mapped by address, and then duneID. Everything is flattened in the end
     const duneEdicts: Record<string, Record<string, IEdict>> = {};
     const outputIds: Record<string, number> = {};
@@ -313,7 +329,7 @@ export class DunestoneTransaction {
       const duneEdict = {
         id: duneId,
         amount: transfer.amount.toString(),
-        output: outputIds[address],
+        output: outputIds[address] + (hasChange ? 1 : 0),
       };
       if (!duneEdicts[address]) {
         duneEdicts[address] = {};
@@ -380,9 +396,9 @@ export class DunestoneTransaction {
     await this.initialize();
     this.addInputs();
     const btcOutputs = this.getBtcOutputs();
-    this.addOutputs(btcOutputs);
+    let hasChange = this.addOutputs(btcOutputs);
 
-    const edicts = this.createEdicts(btcOutputs);
+    const edicts = this.createEdicts(btcOutputs, hasChange);
     let hasDunestone = this.addDunestoneData(edicts);
 
     //If we have a dunestone, we need to add a second output for the opreturn. Otherwise just one for the change
@@ -413,7 +429,7 @@ type SingularDuneTransfer = {
   address: string;
 };
 
-type SingularTransfer = SingularBTCTransfer | SingularDuneTransfer;
+export type SingularTransfer = SingularBTCTransfer | SingularDuneTransfer;
 
 type DunestoneTransactionOptions = {
   //If etching or mint are included, a new output will be created to collect the dunes
@@ -457,6 +473,14 @@ export async function getDunestoneTransaction(
   });
   const dummyInputLength = await dummyDunesTx.build();
   let dummyTx = dummyDunesTx.finalize();
+
+  let feeOpts = {
+    vsize: dummyTx.virtualSize(),
+  };
+
+  console.log(
+    chalk.green(`\n\nCreating transaction with size -> ${feeOpts.vsize} bytes`)
+  );
 
   const dunestoneTx = new DunestoneTransaction(signer, {
     ...options,

@@ -42,7 +42,16 @@ export const DEFAULT_ERROR =
   GIT_ISSUE_URL +
   " with code:";
 
-export let CHOSEN_WALLET = 0;
+export const getChosenWallet = () => {
+  const walletPath = path.resolve(process.cwd(), "wallet.json");
+  if (!fs.existsSync(walletPath)) {
+    return 0;
+  }
+  const walletJson = JSON.parse(fs.readFileSync(walletPath, "utf-8"));
+  return walletJson.currentWalletIndex;
+};
+
+export let CHOSEN_WALLET = getChosenWallet();
 
 export const setChosenWallet = (wallet: number) => {
   CHOSEN_WALLET = wallet;
