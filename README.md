@@ -1,6 +1,6 @@
 # dunes-cli
 
-The **dunes-cli** is an interactive command‑line tool for managing your HD wallet and interacting with Dune assets. It supports wallet generation, recovery, switching addresses, querying balances, transferring funds, minting and etching Dune tokens, configuration management, and more.
+The **dunes-cli** is an interactive command‑line tool for managing a bitcoin dunes wallet and interacting with Dune assets. It supports wallet generation, recovery, switching addresses, querying balances, transferring funds, minting and etching Dune tokens, configuration management, and more.
 
 ## 🚀 Installation
 
