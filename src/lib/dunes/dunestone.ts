@@ -5,14 +5,18 @@ const MAX_U128 = (1n << 128n) - 1n;
 const MAX_U32 = 0xffff_ffff;
 const MAX_U8 = 0xff;
 
-export const duneAmount = z.string().refine(
+const isValidU128 = (s: string) => {
+  try {
+    const n = BigInt(s);
+    return 0n <= n && n <= MAX_U128;
+  } catch {
+    return false;
+  }
+};
+
+const duneAmount = z.string().refine(
   (s) => {
-    try {
-      const n = BigInt(s);
-      return 0n <= n && n <= MAX_U128;
-    } catch {
-      return false;
-    }
+    return isValidU128(s) && s !== "";
   },
   { message: "amount must be a decimal string within u128 range" }
 );
@@ -36,7 +40,7 @@ export const EdictSchema = z.object({
 export const TermsSchema = z.object({
   price: PriceTermsSchema.optional(),
   amount: duneAmount,
-  cap: duneAmount,
+  cap: duneAmount.optional().nullable(),
   height: z.tuple([u32().nullable(), u32().nullable()]),
   offset: z.tuple([u32().nullable(), u32().nullable()]),
 });

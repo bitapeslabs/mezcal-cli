@@ -19,7 +19,7 @@ import { DEFAULT_ERROR } from "@/lib/consts";
 import type { WalletSigner } from "@/lib/crypto/wallet";
 import { SingularTransfer } from "@/lib/dunes";
 import { Dune } from "@/lib/apis/dunes/types";
-
+import { parseBalance } from "@/lib/dunes/utils";
 // ────────────────────────────────────────────────────────────
 // Validation helpers
 // ────────────────────────────────────────────────────────────
@@ -288,7 +288,9 @@ export default class WalletTransfer extends Command {
             `  (${chalk.yellowBright(dune.name)}) ${chalk.green(
               dune.symbol
             )}: ${chalk.bold(
-              Number(balance).toLocaleString("en-US")
+              Number(
+                parseBalance(BigInt(balance), dune.decimals)
+              ).toLocaleString("en-US")
             )}  ${chalk.gray(`[${duneId}]`)}`
           );
           this.balances[duneId] = Number(balance);

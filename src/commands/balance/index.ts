@@ -7,7 +7,7 @@ import { esplora_getaddressbalance } from "@/lib/apis/esplora";
 import { dunesrpc_getdunebalances } from "@/lib/apis/dunes";
 import { isBoxedError } from "@/lib/utils/boxed";
 import { getWallet } from "../shared";
-
+import { parseBalance } from "@/lib/dunes/utils";
 export default class Balance extends Command {
   static override description =
     "Show the confirmed BTC and Dune balances of your wallet address";
@@ -59,7 +59,9 @@ export default class Balance extends Command {
           this.log(
             `  (${chalk.yellowBright(dune.name)}) ` +
               `: ${chalk.green(dune.symbol)} ${chalk.bold(
-                Number(balance).toLocaleString("en-US")
+                Number(
+                  parseBalance(BigInt(balance), dune.decimals)
+                ).toLocaleString("en-US")
               )}   ${chalk.gray(`[${protocolId}]`)}`
           );
         }

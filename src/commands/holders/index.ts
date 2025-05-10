@@ -9,15 +9,7 @@ import {
 } from "@/lib/apis/dunes";
 import { isBoxedError } from "@/lib/utils/boxed";
 import { DEFAULT_ERROR } from "@/lib/consts";
-
-// ── helpers ────────────────────────────────────────
-const U32 = z
-  .string()
-  .regex(/^\d+$/)
-  .refine((s) => {
-    const n = Number(s);
-    return Number.isInteger(n) && n >= 0 && n <= 0xffffffff;
-  }, "must be 0‑4294967295");
+import { parseBalance } from "@/lib/dunes/utils";
 
 const pageSize = 25;
 
@@ -37,11 +29,8 @@ export default class Holders extends Command {
 
   public override async run(argv: string[]): Promise<void> {
     const [duneId, pageRaw] = argv;
-    if (!duneId) return this.error("Usage: dunes holders <block:tx> [page]");
-
-    const [blk, tx] = duneId.split(":");
-    if (!U32.safeParse(blk).success || !U32.safeParse(tx).success)
-      return this.error("Dune id must be <block:u32>:<tx:u32>");
+    if (!duneId)
+      return this.error("Usage: dunes holders <block:tx | dunename> [page]");
 
     const page = Math.max(parseInt(pageRaw || "1", 10) || 1, 1);
 
@@ -65,42 +54,31 @@ export default class Holders extends Command {
     // table header
     const COL_RANK = 4;
     const COL_ADDR = 64; // fits bech32m
-    const COL_BAL = 14;
-    const COL_PCT = 9;
+    const COL_BAL = 20;
     this.log(
       chalk.bold(
-        `${padEnd("Rank", COL_RANK)} ${padEnd("Address", COL_ADDR)} ${padStart(
+        `${padEnd("Rank", COL_RANK)} ${padEnd("Address", COL_ADDR)} ${padEnd(
           "Balance",
           COL_BAL
-        )} ${padStart("Share", COL_PCT)}`
+        )}`
       )
     );
-
-    // compute percentages against total supply if provided
-    const supplyNum =
-      data.total_holders && data.holders.length
-        ? data.holders.reduce((acc, h) => acc + Number(h.balance), 0)
-        : 0;
 
     const startRank = (page - 1) * data.limit;
 
     data.holders.forEach((h, idx) => {
       const rankStr = padEnd((startRank + idx + 1).toString() + ".", COL_RANK);
       const addrStr = padEnd(h.address, COL_ADDR);
-      const balStr = padStart(
-        Number(h.balance).toLocaleString("en-US"),
+      const balStr = padEnd(
+        `${chalk.green(`(${duneInfo.data.symbol})`)} ${chalk.yellow(
+          Number(
+            parseBalance(BigInt(h.balance), duneInfo.data.decimals)
+          ).toLocaleString("en-US")
+        )}`,
         COL_BAL
       );
-      const pct =
-        supplyNum > 0
-          ? ((Number(h.balance) / supplyNum) * 100).toFixed(4) + "%"
-          : "—";
-      const pctStr = padStart(pct, COL_PCT);
-      this.log(
-        `${rankStr} ${chalk.gray(addrStr)} ${chalk.yellow(balStr)} ${chalk.gray(
-          `(${pctStr} )`
-        )}`
-      );
+
+      this.log(`${rankStr} ${chalk.gray(addrStr)} ${balStr}`);
     });
 
     this.log(

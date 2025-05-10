@@ -25,6 +25,7 @@ import { getWitnessUtxo } from "@/lib/crypto/wallet";
 import { DEFAULT_ERROR } from "@/lib/consts";
 import { isBoxedError } from "@/lib/utils/boxed";
 import { getDecryptedWalletFromPassword, getWallet } from "../shared";
+import { IEtching, ITerms } from "@/lib/dunes/dunestone";
 
 type Step =
   | "divisibility"
@@ -235,7 +236,7 @@ export default class Etch extends Command {
     );
     const answers = await this.promptLoop();
 
-    const etching: any = {
+    const etching: IEtching = {
       divisibility: Number(answers.divisibility),
       premine: answers.premine,
       dune: answers.dune,
@@ -245,9 +246,9 @@ export default class Etch extends Command {
     };
 
     if (answers.includeTerms) {
-      const terms: any = {
+      let terms: ITerms = {
         amount: answers.amount,
-        cap: answers.cap,
+
         height: [
           answers.heightMin ? Number(answers.heightMin) : null,
           answers.heightMax ? Number(answers.heightMax) : null,
@@ -262,6 +263,10 @@ export default class Etch extends Command {
           amount: answers.priceAmount,
           pay_to: answers.pricePayTo,
         };
+      }
+
+      if (answers.cap.length > 0) {
+        terms.cap = answers.cap;
       }
       etching.terms = terms;
     }

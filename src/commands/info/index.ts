@@ -9,18 +9,7 @@ import {
 } from "@/lib/apis/dunes";
 import { isBoxedError } from "@/lib/utils/boxed";
 import { DEFAULT_ERROR } from "@/lib/consts";
-
-// u32 validator for block:tx parts
-const U32 = z
-  .string()
-  .regex(/^\d+$/)
-  .refine(
-    (s) => {
-      const n = Number(s);
-      return Number.isInteger(n) && n >= 0 && n <= 0xffffffff;
-    },
-    { message: "must be 0‑4294967295" }
-  );
+import { parseBalance } from "@/lib/dunes/utils";
 
 export default class DuneInfo extends Command {
   static override description =
@@ -29,15 +18,12 @@ export default class DuneInfo extends Command {
 
   public override async run(argv: string[]): Promise<void> {
     const [duneId] = argv;
-    if (!duneId) return this.error("Usage: dunes info <block:tx>");
-
-    const [blk, tx] = duneId.split(":");
-    if (!U32.safeParse(blk).success || !U32.safeParse(tx).success)
-      return this.error("Dune id must be <block:u32>:<tx:u32>");
+    if (!duneId) return this.error("Usage: dunes info <block:tx | dunename>");
 
     // ── fetch asset info
     const metaSpin = ora(`Fetching metadata…`).start();
     const infoRes = await dunesrpc_getduneinfo(duneId);
+
     metaSpin.stop();
     if (isBoxedError(infoRes))
       return this.error(infoRes.message || DEFAULT_ERROR);
@@ -55,7 +41,11 @@ export default class DuneInfo extends Command {
     const num = (n: string | null) =>
       n == null ? "—" : Number(n).toLocaleString();
     const opt = (v: string | null) => (v == null ? "—" : v);
+
+    let isFlex = d.mint_amount === "0" && d?.price_amount;
+
     const rows: [string, string][] = [
+      ["Has flex mint enabled", isFlex ? "yes" : "no"],
       ["Protocol ID", d.dune_protocol_id],
       ["Name", d.name],
       ["Symbol", d.symbol],
@@ -95,15 +85,13 @@ export default class DuneInfo extends Command {
       return;
     }
 
-    const supplyNum =
-      d.total_supply == null ? 0 : Number(d.total_supply || "0");
     h.holders.forEach((entry, i) => {
-      const balNum = Number(entry.balance);
-      const pct = supplyNum > 0 ? ((balNum / supplyNum) * 100).toFixed(4) : "0";
+      const balNum = Number(
+        parseBalance(BigInt(entry.balance), d.decimals)
+      ).toLocaleString("en-US");
       this.log(
         `  ${i + 1}. ${chalk.gray(entry.address)}  ` +
-          `→  ${chalk.yellow(balNum.toLocaleString())}  ` +
-          chalk.gray(`( ${pct}% )`)
+          `→ ${chalk.green(`(${d.symbol})`)} ${chalk.yellow(balNum)}`
       );
     });
 

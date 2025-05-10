@@ -19,14 +19,6 @@ import { DEFAULT_ERROR } from "@/lib/consts";
 import type { WalletSigner } from "@/lib/crypto/wallet";
 import { Dune } from "@/lib/apis/dunes/types";
 import { btcToSats } from "@/lib/crypto/utils";
-// u32:u32 validator
-const U32 = z
-  .string()
-  .regex(/^\d+$/)
-  .refine((s) => {
-    const n = Number(s);
-    return Number.isInteger(n) && n >= 0 && n <= 0xffffffff;
-  }, "must be 0‑4294967295");
 
 export default class Mint extends Command {
   static override description =
@@ -35,11 +27,7 @@ export default class Mint extends Command {
 
   public override async run(argv: string[]): Promise<void> {
     const [duneId] = argv;
-    if (!duneId) return this.error("Usage: dunes mint <block:tx>");
-
-    const [blk, tx] = duneId.split(":");
-    if (!U32.safeParse(blk).success || !U32.safeParse(tx).success)
-      return this.error("Dune id must be <block:u32>:<tx:u32>");
+    if (!duneId) return this.error("Usage: dunes mint <block:tx | duneName>");
 
     // fetch Dune info
     const spin = ora("Fetching dune info…").start();
@@ -55,10 +43,12 @@ export default class Mint extends Command {
       return this.error("This dune is unmintable.");
     }
 
+    let isFlex = dune.mint_amount === "0" && dune?.price_amount;
+
     // if price defined → warn & confirm
     let satCost = 0;
     let payTo = "";
-    if (dune.price_amount && dune.price_pay_to) {
+    if (dune.price_amount && dune.price_pay_to && !isFlex) {
       satCost = Number(dune.price_amount); // already sats
       payTo = dune.price_pay_to;
 
@@ -80,6 +70,42 @@ export default class Mint extends Command {
         this.log("Mint cancelled.");
         return;
       }
+    }
+
+    if (isFlex && dune.price_amount && dune.price_pay_to) {
+      payTo = dune.price_pay_to;
+
+      this.log(chalk.green(`✔ Dune has flex mint enabled`));
+
+      this.log(
+        chalk.yellow(
+          `\nUnlimited minting, the cost is ${dune.price_amount} sat(s) per ${(
+            1 /
+            10 ** dune.decimals
+          ).toFixed(dune.decimals)} ${dune.name}`
+        )
+      );
+      const { amount } = await inquirer.prompt<{ amount: number }>([
+        {
+          type: "input",
+          name: "amount",
+          message: `Enter how many units of ${dune.name} you want to mint (0 to cancel):`,
+          validate: (input) => {
+            const value = Number(input);
+            if (isNaN(value)) return "Please enter a valid number.";
+            if (value < 0) return "Amount must be greater than or equal to 0.";
+            return true;
+          },
+        },
+      ]);
+      if (amount === 0) {
+        this.log("Mint cancelled.");
+        return;
+      }
+      satCost =
+        Number(amount) *
+        10 ** Number(dune.decimals) *
+        Number(dune.price_amount);
     }
 
     // wallet & password
