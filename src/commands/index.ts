@@ -30,6 +30,7 @@ export const commands: Record<string, typeof Command> = {
   mint: Mint,
   etch: Etch,
   balance: Balance,
+  balances: Balance,
   config: Config, // Alias for config:show
 };
 

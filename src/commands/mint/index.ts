@@ -52,7 +52,7 @@ export default class Mint extends Command {
 
     // mintability check
     if (dune.mint_amount === null) {
-      return this.error("This Dune asset is unmintable.");
+      return this.error("This dune is unmintable.");
     }
 
     // if price defined → warn & confirm
@@ -65,7 +65,7 @@ export default class Mint extends Command {
       const btcCost = (satCost / 1e8).toFixed(8);
       this.log(
         chalk.yellow(
-          `\nMinting costs ${satCost.toLocaleString()} sats (${btcCost} BTC) payable to ${payTo}`
+          `\nThis dune has a cost of ${satCost.toLocaleString()} sats (${btcCost} BTC) to mint, payable to ${payTo}`
         )
       );
       const { confirm } = await inquirer.prompt<{ confirm: boolean }>([
