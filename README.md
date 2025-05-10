@@ -156,19 +156,4 @@ The CLI command is invoked as `dunes`. Below are the available commands along wi
     dunes config
     ```
 
-## Additional Notes
-
-- **Error Handling:**  
-  Errors are reported with clear messages. For example, if there’s a decryption failure or invalid input, the CLI will output an error and exit.
-
-- **Interactive Prompts:**  
-  Commands such as `wallet recover`, `transfer`, and `etch` use interactive prompts (powered by Inquirer) to guide you step‑by‑step.
-
-- **Build & Packaging:**  
-  The project uses [esbuild](https://esbuild.github.io) for bundling and supports creating standalone executables for Windows and Linux.
-
 For more details or to report issues, please visit the [GitHub Issue Tracker](https://github.com/bitapeslabs/dunes-cli/issues).
-
-## Happy transacting with dunes-cli!
-
-Enjoy using **dunes-cli**!
