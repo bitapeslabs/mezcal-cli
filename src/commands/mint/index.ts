@@ -125,7 +125,7 @@ export default class Mint extends Command {
 
     const txRes = await getDunestoneTransaction(signer, {
       partialDunestone: { mint: duneId },
-      transfers: [],
+      transfers: transfers,
     });
     if (isBoxedError(txRes)) return this.error(txRes.message || DEFAULT_ERROR);
 
