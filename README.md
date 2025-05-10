@@ -17,7 +17,7 @@ The **dunes-cli** is an interactive command‑line tool for managing a bitcoin d
    dunes --help
    ```
 
-## Command Reference
+## 📚 Command Reference
 
 The CLI command is invoked as `dunes`. Below are the available commands along with usage examples:
 
