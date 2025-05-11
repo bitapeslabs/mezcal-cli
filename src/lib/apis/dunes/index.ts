@@ -6,7 +6,7 @@ import {
   DunesFetchError,
   DunesUtxo,
   DuneHoldersResponse,
-  DuneHolder,
+  AllDunesResponse,
 } from "./types";
 import { BoxedResponse, BoxedSuccess, BoxedError } from "@/lib/utils/boxed";
 
@@ -102,4 +102,22 @@ export async function dunesrpc_getDuneHolders(
 
   const json = await res.json();
   return new BoxedSuccess(json as DuneHoldersResponse);
+}
+
+export async function dunesrpc_getAllDunes(
+  page: number = 1,
+  limit: number = 100
+): Promise<BoxedResponse<AllDunesResponse, DunesFetchError>> {
+  const url = `${DUNES_RPC_URL}/dunes/etchings/all?page=${page}&limit=${limit}`;
+  const res = await fetch(url);
+
+  if (!res.ok) {
+    return new BoxedError(
+      DunesFetchError.UnknownError,
+      `Failed to fetch all dunes from ${url}: ${res.statusText}`
+    );
+  }
+
+  const json = await res.json();
+  return new BoxedSuccess(json as AllDunesResponse);
 }

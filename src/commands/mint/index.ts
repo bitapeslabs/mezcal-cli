@@ -15,7 +15,7 @@ import {
 import { getWallet, getDecryptedWalletFromPassword } from "../shared";
 import { isBoxedError } from "@/lib/utils/boxed";
 import { getDunestoneTransaction, SingularBTCTransfer } from "@/lib/dunes";
-import { DEFAULT_ERROR } from "@/lib/consts";
+import { CURRENT_BTC_TICKER, DEFAULT_ERROR } from "@/lib/consts";
 import type { WalletSigner } from "@/lib/crypto/wallet";
 import { Dune } from "@/lib/apis/dunes/types";
 import { btcToSats } from "@/lib/crypto/utils";
@@ -55,7 +55,7 @@ export default class Mint extends Command {
       const btcCost = (satCost / 1e8).toFixed(8);
       this.log(
         chalk.yellow(
-          `\nThis dune has a cost of ${satCost.toLocaleString()} sats (${btcCost} BTC) to mint, payable to ${payTo}`
+          `\nThis dune has a cost of ${satCost.toLocaleString()} sats (${btcCost} ${CURRENT_BTC_TICKER}) to mint, payable to ${payTo}`
         )
       );
       const { confirm } = await inquirer.prompt<{ confirm: boolean }>([
@@ -130,7 +130,7 @@ export default class Mint extends Command {
         return this.error(balRes.message || DEFAULT_ERROR);
       if (btcToSats(balRes.data) < satCost + 546) {
         return this.error(
-          `Insufficient BTC balance. Need at least ${
+          `Insufficient ${CURRENT_BTC_TICKER} balance. Need at least ${
             satCost + 546
           } sats (including dust output).`
         );
@@ -150,7 +150,7 @@ export default class Mint extends Command {
         : [];
 
     const txRes = await getDunestoneTransaction(signer, {
-      partialDunestone: { mint: duneId },
+      partialDunestone: { mint: infoRes.data.dune_protocol_id },
       transfers: transfers,
     });
     if (isBoxedError(txRes)) return this.error(txRes.message || DEFAULT_ERROR);

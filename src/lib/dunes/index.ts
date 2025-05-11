@@ -18,7 +18,7 @@ import {
   BoxedResponse,
   isBoxedError,
 } from "@/lib/utils/boxed";
-import { NETWORK } from "@/lib/consts";
+import { CURRENT_BTC_TICKER, NETWORK } from "@/lib/consts";
 import { esplora_getutxos, esplora_getfee } from "@/lib/apis/esplora";
 import {
   dunesrpc_getDuneUtxoBalances,
@@ -81,7 +81,7 @@ export class DunestoneTransaction {
     const esploraUtxoResponse = await esplora_getutxos(this.changeAddress);
     if (isBoxedError(esploraUtxoResponse)) {
       throw new Error(
-        `Failed to fetch BTC utxos: ${esploraUtxoResponse.message}`
+        `Failed to fetch ${CURRENT_BTC_TICKER} utxos: ${esploraUtxoResponse.message}`
       );
     }
     this.availableUtxos = esploraUtxoResponse.data;
@@ -222,7 +222,7 @@ export class DunestoneTransaction {
     }
     if (accumulated < this.cumulativeSpendRequirementBtc) {
       throw new Error(
-        `Insufficient BTC UTXOs to meet the requirement for BTC.`
+        `Insufficient ${CURRENT_BTC_TICKER} UTXOs to meet the requirement for ${CURRENT_BTC_TICKER}.`
       );
     }
     return utxosToMeetRequirements;

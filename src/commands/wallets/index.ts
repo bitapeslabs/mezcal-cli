@@ -2,7 +2,7 @@ import fs from "fs";
 import chalk from "chalk";
 import ora from "ora";
 import { Command } from "@/commands/base";
-import { WALLET_PATH, DEFAULT_ERROR } from "@/lib/consts";
+import { WALLET_PATH, DEFAULT_ERROR, CURRENT_BTC_TICKER } from "@/lib/consts";
 import {
   decryptWalletWithPassword,
   viewAddresses,
@@ -67,7 +67,7 @@ export default class WalletList extends Command {
 
         this.log(
           `${indexLabel} ${chalk.yellow(entry.address)}\n  → ${chalk.cyanBright(
-            `${entry.btc_balance} BTC`
+            `${entry.btc_balance} ${CURRENT_BTC_TICKER}`
           )}\n`
         );
       });

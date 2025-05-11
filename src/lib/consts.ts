@@ -12,9 +12,9 @@ export const WALLET_PATH = path.resolve(paths.data, "wallet.json");
 export const GIT_ISSUE_URL = "https://github.com/bitapeslabs/dunes-cli/issues";
 
 const defaults = {
-  ELECTRUM_API_URL: "https://regtest.anoa.io/api",
-  DUNES_RPC_URL: "http://api.dunes.sh",
-  NETWORK: "regtest", // <- new default
+  ELECTRUM_API_URL: "https://testnet.dunes.sh",
+  DUNES_RPC_URL: "https://api.dunes.sh",
+  NETWORK: "testnet", // <- new default
 };
 
 type ConfigKeys = keyof typeof defaults;
@@ -27,6 +27,15 @@ if (fs.existsSync(CONFIG_PATH)) {
     console.warn("[WARN] Failed to parse config.json – using defaults.");
   }
 }
+
+export const BTC_TICKERS = {
+  regtest: "rBTC",
+  testnet: "tBTC",
+  mainnet: "BTC",
+} as const;
+
+export const CURRENT_BTC_TICKER =
+  BTC_TICKERS[defaults.NETWORK as keyof typeof BTC_TICKERS];
 
 export const ELECTRUM_API_URL =
   configOverrides.ELECTRUM_API_URL ?? defaults.ELECTRUM_API_URL;

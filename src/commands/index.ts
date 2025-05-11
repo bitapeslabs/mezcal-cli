@@ -14,9 +14,11 @@ import WalletTransfer from "./transfer";
 import DuneInfo from "./info";
 import DuneHolders from "./holders";
 import Mint from "./mint";
+import AllDunes from "./all";
 
 export const commands: Record<string, typeof Command> = {
   wallets: Wallets,
+  all: AllDunes,
   "wallet:switch": WalletSwitch,
   "wallet:generate": WalletGenerate,
   "wallet:recover": WalletRecover,

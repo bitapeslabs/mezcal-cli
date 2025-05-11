@@ -3,7 +3,7 @@ import { BIP32Factory, BIP32Interface } from "bip32";
 import * as bitcoin from "bitcoinjs-lib";
 import * as crypto from "crypto";
 import { ecc } from "@/lib/crypto/ecc.js";
-import { NETWORK, setChosenWallet } from "@/lib/consts";
+import { CURRENT_BTC_TICKER, NETWORK, setChosenWallet } from "@/lib/consts";
 import { ECPairFactory } from "ecpair";
 import { EsploraUtxo } from "@/lib/apis/esplora/types.js";
 import { BoxedResponse, BoxedError, BoxedSuccess } from "../utils/boxed.js";
@@ -247,7 +247,7 @@ export const viewAddresses = async (
 
     if (btcBalanceResponse.status === false) {
       throw new Error(
-        `Failed to fetch BTC balance: ${btcBalanceResponse.message}`
+        `Failed to fetch ${CURRENT_BTC_TICKER} balance: ${btcBalanceResponse.message}`
       );
     }
     let btcBalance = btcBalanceResponse.data;

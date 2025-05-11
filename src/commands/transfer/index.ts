@@ -15,7 +15,7 @@ import {
 import { getWallet, getDecryptedWalletFromPassword } from "../shared";
 import { isBoxedError } from "@/lib/utils/boxed";
 import { getDunestoneTransaction } from "@/lib/dunes";
-import { DEFAULT_ERROR } from "@/lib/consts";
+import { CURRENT_BTC_TICKER, DEFAULT_ERROR } from "@/lib/consts";
 import type { WalletSigner } from "@/lib/crypto/wallet";
 import { SingularTransfer } from "@/lib/dunes";
 import { Dune } from "@/lib/apis/dunes/types";
@@ -73,8 +73,7 @@ const lev = (a: string, b: string) => {
 
 // ────────────────────────────────────────────────────────────
 export default class WalletTransfer extends Command {
-  static override description =
-    "Interactively build & broadcast BTC / Dune transfers";
+  static override description = `Interactively build & broadcast ${CURRENT_BTC_TICKER} / Dune transfers`;
   static override examples = [
     "$ dunes wallet transfer",
     "bc1… btc 0.001",
@@ -141,7 +140,7 @@ export default class WalletTransfer extends Command {
       const num = chalk.grey(`#${i + 1}`);
       if (t.asset === "btc") {
         this.log(
-          `${num} ${chalk.yellow("BTC")} → ${chalk.yellow(
+          `${num} ${chalk.yellow(CURRENT_BTC_TICKER)} → ${chalk.yellow(
             t.amount.toLocaleString()
           )} sats to ${chalk.gray(t.address)}`
         );
@@ -275,8 +274,10 @@ export default class WalletTransfer extends Command {
 
     if (!isBoxedError(btcRes)) {
       this.balances["btc"] = btcRes.data;
-      this.log(chalk.yellow.bold("BTC Balance:"));
-      this.log(`  ${chalk.yellow.bold(`${btcRes.data} BTC`)}\n`);
+      this.log(chalk.yellow.bold(`${CURRENT_BTC_TICKER} Balance:`));
+      this.log(
+        `  ${chalk.yellow.bold(`${btcRes.data} ${CURRENT_BTC_TICKER}`)}\n`
+      );
     }
 
     if (!isBoxedError(duneRes)) {

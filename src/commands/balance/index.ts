@@ -2,15 +2,14 @@ import chalk from "chalk";
 import ora from "ora";
 
 import { Command } from "@/commands/base";
-import { GIT_ISSUE_URL } from "@/lib/consts";
+import { CURRENT_BTC_TICKER, GIT_ISSUE_URL } from "@/lib/consts";
 import { esplora_getaddressbalance } from "@/lib/apis/esplora";
 import { dunesrpc_getdunebalances } from "@/lib/apis/dunes";
 import { isBoxedError } from "@/lib/utils/boxed";
 import { getWallet } from "../shared";
 import { parseBalance } from "@/lib/dunes/utils";
 export default class Balance extends Command {
-  static override description =
-    "Show the confirmed BTC and Dune balances of your wallet address";
+  static override description = `Show the confirmed ${CURRENT_BTC_TICKER} and Dune balances of your wallet address`;
   static override examples = ["$ dunes balance"];
 
   public override async run(): Promise<void> {
@@ -35,7 +34,9 @@ export default class Balance extends Command {
       spinner.stop();
 
       if (isBoxedError(btcResult)) {
-        this.error(`Failed to fetch BTC balance: ${btcResult.message}`);
+        this.error(
+          `Failed to fetch ${CURRENT_BTC_TICKER} balance: ${btcResult.message}`
+        );
         return;
       }
 
@@ -45,8 +46,8 @@ export default class Balance extends Command {
       }
 
       const btc = btcResult.data;
-      this.log(chalk.yellow.bold("BTC Balance:"));
-      this.log(`  ${chalk.yellow.bold(`${btc} BTC`)}\n`);
+      this.log(chalk.yellow.bold(`${CURRENT_BTC_TICKER} Balance:`));
+      this.log(`  ${chalk.yellow.bold(`${btc} ${CURRENT_BTC_TICKER}`)}\n`);
 
       const balances = duneResult.data?.balances;
       if (Object.keys(balances)?.length === 0) {

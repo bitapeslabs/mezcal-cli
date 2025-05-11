@@ -102,6 +102,16 @@ The CLI command is invoked as `dunes`. Below are the available commands along wi
     dunes info 859:1
     ```
 
+**= Discover dunes =**
+
+- **Dune List**
+
+  - Lists all Dunes on the network.
+  - **Usage:**
+    ```sh
+    dunes all <protocol>
+    ```
+
 - **Holders**
 
   - Lists holders for a specific Dune asset.

@@ -65,3 +65,10 @@ export interface DuneHoldersResponse {
   limit: number; // page size
   holders: DuneHolder[];
 }
+
+export interface AllDunesResponse {
+  total_etchings: number;
+  page: number;
+  limit: number;
+  etchings: Dune[];
+}
