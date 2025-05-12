@@ -6,6 +6,7 @@ import { Command } from "@/commands/base";
 import { CONFIG_PATH } from "@/lib/consts";
 
 const UrlSchema = z.string().url("Must be a valid URL");
+const ExplorerSchema = z.string().url("Must be a valid URL");
 const NetworkSchema = z.enum(["bitcoin", "testnet", "regtest"]);
 
 function loadConfig(): Record<string, string> {
@@ -37,6 +38,7 @@ export default class ConfigSet extends Command {
   static override flags = {
     electrum: z.string().optional().describe("Electrum API URL"),
     dunes: z.string().optional().describe("Dunes RPC URL"),
+    explorer: ExplorerSchema.optional().describe("Explorer URL"),
     network: NetworkSchema.optional().describe(
       "Network (bitcoin | testnet | regtest)"
     ),
@@ -95,6 +97,12 @@ export default class ConfigSet extends Command {
         `  • ${chalk.yellow("network")}:  ${chalk.gray(
           config.NETWORK || "not set"
         )}\n`
+      );
+
+      this.log(
+        `  • ${chalk.yellow("explorer")}: ${chalk.gray(
+          config.EXPLORER_URL || "not set"
+        )}`
       );
       this.log(
         chalk.gray(

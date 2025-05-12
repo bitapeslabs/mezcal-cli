@@ -2,7 +2,7 @@ import chalk from "chalk";
 import ora from "ora";
 import inquirer from "inquirer";
 import { z } from "zod";
-
+import { EXPLORER_URL } from "@/lib/consts";
 import { Command } from "@/commands/base";
 import {
   esplora_getaddressbalance,
@@ -334,6 +334,6 @@ export default class WalletTransfer extends Command {
       return this.error(br.message || DEFAULT_ERROR);
     }
     bSpin.succeed("Broadcasted!");
-    this.log(`TxID: ${chalk.gray(br.data)}`);
+    this.log("TX: " + chalk.gray(`${EXPLORER_URL}/tx/${br.data}`));
   }
 }

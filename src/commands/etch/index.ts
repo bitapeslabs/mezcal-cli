@@ -7,7 +7,7 @@ import { bip32 } from "@/lib/crypto/wallet";
 import { BIP32Interface } from "bip32";
 import * as bip39 from "bip39";
 import { z } from "zod";
-
+import { EXPLORER_URL } from "@/lib/consts";
 import { Command } from "@/commands/base";
 import {
   decryptWalletWithPassword,
@@ -293,6 +293,6 @@ export default class Etch extends Command {
 
     const txid = response.data;
     txSpinner.succeed("Transaction broadcasted.");
-    this.log(chalk.grey(`\nTransaction ID: ${txid}`));
+    this.log("TX: " + chalk.gray(`${EXPLORER_URL}/tx/${txid}`));
   }
 }

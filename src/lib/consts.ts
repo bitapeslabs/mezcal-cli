@@ -14,6 +14,7 @@ export const GIT_ISSUE_URL = "https://github.com/bitapeslabs/dunes-cli/issues";
 const defaults = {
   ELECTRUM_API_URL: "https://testnet.dunes.sh",
   DUNES_RPC_URL: "https://api.dunes.sh",
+  EXPLORER_URL: "https://mempool.space/testnet",
   NETWORK: "testnet", // <- new default
 };
 
@@ -42,6 +43,9 @@ export const ELECTRUM_API_URL =
 
 export const DUNES_RPC_URL =
   configOverrides.DUNES_RPC_URL ?? defaults.DUNES_RPC_URL;
+
+export const EXPLORER_URL =
+  configOverrides.EXPLORER_URL ?? defaults.EXPLORER_URL;
 
 export const NETWORK =
   networks[

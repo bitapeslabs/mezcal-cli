@@ -15,7 +15,7 @@ import {
 import { getWallet, getDecryptedWalletFromPassword } from "../shared";
 import { isBoxedError } from "@/lib/utils/boxed";
 import { getDunestoneTransaction, SingularBTCTransfer } from "@/lib/dunes";
-import { CURRENT_BTC_TICKER, DEFAULT_ERROR } from "@/lib/consts";
+import { CURRENT_BTC_TICKER, DEFAULT_ERROR, EXPLORER_URL } from "@/lib/consts";
 import type { WalletSigner } from "@/lib/crypto/wallet";
 import { Dune } from "@/lib/apis/dunes/types";
 import { btcToSats } from "@/lib/crypto/utils";
@@ -162,6 +162,6 @@ export default class Mint extends Command {
     if (isBoxedError(br)) return this.error(br.message || DEFAULT_ERROR);
 
     this.log(chalk.green("Mint transaction broadcasted!"));
-    this.log(`TxID: ${chalk.gray(br.data)}`);
+    this.log("TX: " + chalk.gray(`${EXPLORER_URL}/tx/${br.data}`));
   }
 }
