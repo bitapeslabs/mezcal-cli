@@ -279,7 +279,9 @@ export class DunestoneTransaction {
 
     let totalInputValue = this.utxos.reduce((acc, utxo) => acc + utxo.value, 0);
 
-    const changeValue = totalInputValue - totalOutputValue - this.fee;
+    const changeValue = Math.round(
+      totalInputValue - totalOutputValue - this.fee
+    );
 
     //Change goes first, so it receives the dunes not in the edicts
     if (changeValue >= this.MINIMUM_DUST) {
@@ -470,33 +472,34 @@ export async function getDunestoneTransaction(
     partialDunestone,
   });
   const [dummyInputLength, dummyDunestone] = await dummyDunesTx.build();
-
-  const dunestoneBuffer = Buffer.from(JSON.stringify(dummyDunestone), "utf8");
   buildSpin.stop();
 
-  if (dunestoneBuffer.length > 80) {
-    const warning = chalk.yellow(
-      `\nWARNING: Dunestone exceeds 80 bytes.\n` +
-        `Only MARA pool currently supports OP_RETURNs over 80 bytes.\n` +
-        `This transaction may take hours or even a day to confirm.\n` +
-        `Proposal to increase the limit: https://github.com/bitcoin/bitcoin/pull/32359\n`
-    );
-    console.log(warning);
+  if (dummyDunestone) {
+    const dunestoneBuffer = Buffer.from(JSON.stringify(dummyDunestone), "utf8");
 
-    const { proceed } = await inquirer.prompt<{ proceed: boolean }>([
-      {
-        type: "confirm",
-        name: "proceed",
-        message: "Continue anyway?",
-        default: false,
-      },
-    ]);
+    if (dunestoneBuffer.length > 80) {
+      const warning = chalk.yellow(
+        `\nWARNING: Dunestone exceeds 80 bytes.\n` +
+          `Only MARA pool currently supports OP_RETURNs over 80 bytes.\n` +
+          `This transaction may take hours or even a day to confirm.\n` +
+          `Proposal to increase the limit: https://github.com/bitcoin/bitcoin/pull/32359\n`
+      );
+      console.log(warning);
 
-    if (!proceed) {
-      throw new Error("Transaction cancelled by user.");
+      const { proceed } = await inquirer.prompt<{ proceed: boolean }>([
+        {
+          type: "confirm",
+          name: "proceed",
+          message: "Continue anyway?",
+          default: false,
+        },
+      ]);
+
+      if (!proceed) {
+        throw new Error("Transaction cancelled by user.");
+      }
     }
   }
-
   let dummyTx = dummyDunesTx.finalize();
 
   let feeOpts = {
