@@ -1,4 +1,5 @@
-# mezcal-cli
+# 🌵 mezcal-cli
+🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵
 
 The **mezcal-cli** is an interactive command‑line tool for managing a bitcoin mezcal wallet and interacting with Mezcal assets. It supports wallet generation, recovery, switching addresses, querying balances, transferring funds, minting and etching Mezcal tokens, configuration management, and more.
 
