@@ -11,7 +11,7 @@ import { isBoxedError } from "@/lib/utils/boxed";
 export default class WalletReveal extends Command {
   static override description =
     "Show the mnemonic phrase for your active wallet";
-  static override examples = ["$ dunes wallet reveal"];
+  static override examples = ["$ mezcal wallet reveal"];
 
   public override async run(): Promise<void> {
     const walletResponse = await getWallet(this);

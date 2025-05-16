@@ -2,18 +2,18 @@ import fs from "fs";
 import path from "path";
 import { networks } from "bitcoinjs-lib";
 import envPaths from "env-paths";
-const paths = envPaths("dunes");
+const paths = envPaths("mezcal");
 
 // Use the current working directory to resolve config/wallet paths
 fs.mkdirSync(paths.data, { recursive: true });
 
 export const CONFIG_PATH = path.resolve(paths.data, "config.json");
 export const WALLET_PATH = path.resolve(paths.data, "wallet.json");
-export const GIT_ISSUE_URL = "https://github.com/bitapeslabs/dunes-cli/issues";
+export const GIT_ISSUE_URL = "https://github.com/bitapeslabs/mezcal-cli/issues";
 
 const defaults = {
-  ELECTRUM_API_URL: "https://testnet.dunes.sh",
-  DUNES_RPC_URL: "https://api.dunes.sh",
+  ELECTRUM_API_URL: "https://testnet.mezcal.sh",
+  DUNES_RPC_URL: "https://api.mezcal.sh",
   EXPLORER_URL: "https://mempool.space/testnet",
   NETWORK: "testnet", // <- new default
 };

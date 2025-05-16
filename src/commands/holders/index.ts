@@ -4,12 +4,12 @@ import { z } from "zod";
 
 import { Command } from "@/commands/base";
 import {
-  dunesrpc_getDuneHolders,
-  dunesrpc_getduneinfo,
-} from "@/lib/apis/dunes";
+  mezcalrpc_getMezcalHolders,
+  mezcalrpc_getmezcalinfo,
+} from "@/lib/apis/mezcal";
 import { isBoxedError } from "@/lib/utils/boxed";
 import { DEFAULT_ERROR } from "@/lib/consts";
-import { parseBalance } from "@/lib/dunes/utils";
+import { parseBalance } from "@/lib/mezcal/utils";
 
 const pageSize = 25;
 
@@ -21,33 +21,33 @@ const padStart = (s: string, w: number) =>
 
 // ── command ────────────────────────────────────────
 export default class Holders extends Command {
-  static override description = "List holders for a Dune asset";
+  static override description = "List holders for a Mezcal asset";
   static override examples = [
-    "$ dunes holders 859:1",
-    "$ dunes holders 859:1 3",
+    "$ mezcal holders 859:1",
+    "$ mezcal holders 859:1 3",
   ];
 
   public override async run(argv: string[]): Promise<void> {
-    const [duneId, pageRaw] = argv;
-    if (!duneId)
-      return this.error("Usage: dunes holders <block:tx | dunename> [page]");
+    const [mezcalId, pageRaw] = argv;
+    if (!mezcalId)
+      return this.error("Usage: mezcal holders <block:tx | mezcalname> [page]");
 
     const page = Math.max(parseInt(pageRaw || "1", 10) || 1, 1);
 
     const spin = ora("Fetching holders…").start();
-    const resp = await dunesrpc_getDuneHolders(duneId, page, pageSize);
-    const duneInfo = await dunesrpc_getduneinfo(duneId);
+    const resp = await mezcalrpc_getMezcalHolders(mezcalId, page, pageSize);
+    const mezcalInfo = await mezcalrpc_getmezcalinfo(mezcalId);
     spin.stop();
 
     if (isBoxedError(resp)) return this.error(resp.message || DEFAULT_ERROR);
-    if (isBoxedError(duneInfo))
-      return this.error(duneInfo.message || DEFAULT_ERROR);
+    if (isBoxedError(mezcalInfo))
+      return this.error(mezcalInfo.message || DEFAULT_ERROR);
 
     const data = resp.data;
     const totalPages = Math.ceil(data.total_holders / data.limit) || 1;
     this.log(
       `${chalk.yellow(
-        `Holders for ${duneInfo.data.name} — page ${page} / ${totalPages}`
+        `Holders for ${mezcalInfo.data.name} — page ${page} / ${totalPages}`
       )}`
     );
 
@@ -70,9 +70,9 @@ export default class Holders extends Command {
       const rankStr = padEnd((startRank + idx + 1).toString() + ".", COL_RANK);
       const addrStr = padEnd(h.address, COL_ADDR);
       const balStr = padEnd(
-        `${chalk.green(`(${duneInfo.data.symbol})`)} ${chalk.yellow(
+        `${chalk.green(`(${mezcalInfo.data.symbol})`)} ${chalk.yellow(
           Number(
-            parseBalance(BigInt(h.balance), duneInfo.data.decimals)
+            parseBalance(BigInt(h.balance), mezcalInfo.data.decimals)
           ).toLocaleString("en-US")
         )}`,
         COL_BAL

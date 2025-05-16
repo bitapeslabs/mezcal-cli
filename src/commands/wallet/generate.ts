@@ -16,7 +16,7 @@ import { WALLET_PATH, DEFAULT_ERROR } from "@/lib/consts";
 
 export default class WalletGenerate extends Command {
   static override description = "Generate a new address from your HD wallet";
-  static override examples = ["$ dunes wallet generate"];
+  static override examples = ["$ mezcal wallet generate"];
 
   public override async run(): Promise<void> {
     const wallet = await getWallet(this, true);

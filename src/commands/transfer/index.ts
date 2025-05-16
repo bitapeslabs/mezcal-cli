@@ -9,17 +9,17 @@ import {
   esplora_broadcastTx,
 } from "@/lib/apis/esplora";
 import {
-  dunesrpc_getdunebalances,
-  dunesrpc_getduneinfo,
-} from "@/lib/apis/dunes";
+  mezcalrpc_getmezcalbalances,
+  mezcalrpc_getmezcalinfo,
+} from "@/lib/apis/mezcal";
 import { getWallet, getDecryptedWalletFromPassword } from "../shared";
 import { isBoxedError } from "@/lib/utils/boxed";
-import { getDunestoneTransaction } from "@/lib/dunes";
+import { getMezcalstoneTransaction } from "@/lib/mezcal";
 import { CURRENT_BTC_TICKER, DEFAULT_ERROR } from "@/lib/consts";
 import type { WalletSigner } from "@/lib/crypto/wallet";
-import { SingularTransfer } from "@/lib/dunes";
-import { Dune } from "@/lib/apis/dunes/types";
-import { parseBalance } from "@/lib/dunes/utils";
+import { SingularTransfer } from "@/lib/mezcal";
+import { Mezcal } from "@/lib/apis/mezcal/types";
+import { parseBalance } from "@/lib/mezcal/utils";
 // ────────────────────────────────────────────────────────────
 // Validation helpers
 // ────────────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ const TransferLineSchema = z.string().refine(
     // else treat as name: syntactically any word is okay
     return true;
   },
-  { message: "<address> <btc|duneId|duneName> <amount>" }
+  { message: "<address> <btc|mezcalId|mezcalName> <amount>" }
 );
 
 // Simple Levenshtein (small strings)
@@ -73,9 +73,9 @@ const lev = (a: string, b: string) => {
 
 // ────────────────────────────────────────────────────────────
 export default class WalletTransfer extends Command {
-  static override description = `Interactively build & broadcast ${CURRENT_BTC_TICKER} / Dune transfers`;
+  static override description = `Interactively build & broadcast ${CURRENT_BTC_TICKER} / Mezcal transfers`;
   static override examples = [
-    "$ dunes wallet transfer",
+    "$ mezcal wallet transfer",
     "bc1… btc 0.001",
     "bc1… 859:1 10",
     "bc1… BobToken 5",
@@ -83,8 +83,8 @@ export default class WalletTransfer extends Command {
   private balances: Record<string, number> = {};
   private transfers: SingularTransfer[] = [];
   private divCache: Record<string, number> = {};
-  private nameLookup: Record<string, Dune> = {};
-  private reverseNameLookup: Record<string, Dune> = {};
+  private nameLookup: Record<string, Mezcal> = {};
+  private reverseNameLookup: Record<string, Mezcal> = {};
 
   // ── basic utils ──────────────────────────────────────────
   private btcToSats(str: string): number {
@@ -94,9 +94,9 @@ export default class WalletTransfer extends Command {
     );
   }
 
-  private async duneDecimals(id: string): Promise<number> {
+  private async mezcalDecimals(id: string): Promise<number> {
     if (this.divCache[id] !== undefined) return this.divCache[id];
-    const resp = await dunesrpc_getduneinfo(id);
+    const resp = await mezcalrpc_getmezcalinfo(id);
     if (isBoxedError(resp)) throw new Error(resp.message);
     this.divCache[id] = resp.data.decimals ?? 0;
     return this.divCache[id];
@@ -113,7 +113,7 @@ export default class WalletTransfer extends Command {
       .slice(0, 3);
 
     if (!ranked.length || ranked[0].d > 3)
-      throw new Error(`Unknown Dune name '${raw}'.`);
+      throw new Error(`Unknown Mezcal name '${raw}'.`);
 
     this.log(chalk.yellow("Did you mean:"));
     ranked.forEach((r, i) => this.log(`  ${i + 1}. ${r.n}`));
@@ -161,7 +161,7 @@ export default class WalletTransfer extends Command {
   // ── interactive collection ─────────────────────────────
   private async collectTransfers() {
     this.log(chalk.bold("\nEnter transfers one per line in the format:"));
-    this.log(chalk.cyan('<address> <duneId|"btc"> <amount>'));
+    this.log(chalk.cyan('<address> <mezcalId|"btc"> <amount>'));
     this.log(
       chalk.gray(
         "Type '/send' when you are done, or '/back' to remove the last entry."
@@ -192,22 +192,24 @@ export default class WalletTransfer extends Command {
                 return `Insufficient balance for '${asset}'`;
               }
             } else if (asset.includes(":")) {
-              let dune = this.reverseNameLookup[asset];
+              let mezcal = this.reverseNameLookup[asset];
 
-              if (!dune) {
-                return `Unknown Dune ID '${asset}'`;
+              if (!mezcal) {
+                return `Unknown Mezcal ID '${asset}'`;
               }
               if (
-                BigInt(this.balances[dune.dune_protocol_id]) < BigInt(amount)
+                BigInt(this.balances[mezcal.mezcal_protocol_id]) <
+                BigInt(amount)
               ) {
-                return `Insufficient balance for '${dune.name}'`;
+                return `Insufficient balance for '${mezcal.name}'`;
               }
             } else {
-              let dune = this.nameLookup[asset.toLowerCase()];
+              let mezcal = this.nameLookup[asset.toLowerCase()];
               if (
-                BigInt(this.balances[dune.dune_protocol_id]) < BigInt(amount)
+                BigInt(this.balances[mezcal.mezcal_protocol_id]) <
+                BigInt(amount)
               ) {
-                return `Insufficient balance for '${dune.name}'`;
+                return `Insufficient balance for '${mezcal.name}'`;
               }
             }
 
@@ -240,14 +242,14 @@ export default class WalletTransfer extends Command {
             address,
           });
         } else if (assetRaw.includes(":")) {
-          const decimals = await this.duneDecimals(assetRaw);
+          const decimals = await this.mezcalDecimals(assetRaw);
           this.transfers.push({
             asset: assetRaw,
             amount: BigInt(Number(amountRaw) * 10 ** decimals),
             address,
           });
         } else {
-          const { dune_protocol_id: id, decimals } = await this.pickName(
+          const { mezcal_protocol_id: id, decimals } = await this.pickName(
             assetRaw
           );
           this.transfers.push({
@@ -265,9 +267,9 @@ export default class WalletTransfer extends Command {
   }
 
   private async loadBalances(addr: string) {
-    const [btcRes, duneRes] = await Promise.all([
+    const [btcRes, mezcalRes] = await Promise.all([
       esplora_getaddressbalance(addr),
-      dunesrpc_getdunebalances(addr),
+      mezcalrpc_getmezcalbalances(addr),
     ]);
 
     this.balances["btc"] = 0;
@@ -280,23 +282,23 @@ export default class WalletTransfer extends Command {
       );
     }
 
-    if (!isBoxedError(duneRes)) {
-      const bal = duneRes.data.balances;
+    if (!isBoxedError(mezcalRes)) {
+      const bal = mezcalRes.data.balances;
       if (Object.keys(bal).length) {
-        this.log(chalk.cyan.bold("Dune Balances:"));
-        for (const [duneId, { balance, dune }] of Object.entries(bal)) {
+        this.log(chalk.cyan.bold("Mezcal Balances:"));
+        for (const [mezcalId, { balance, mezcal }] of Object.entries(bal)) {
           this.log(
-            `  (${chalk.yellowBright(dune.name)}) ${chalk.green(
-              dune.symbol
+            `  (${chalk.yellowBright(mezcal.name)}) ${chalk.green(
+              mezcal.symbol
             )}: ${chalk.bold(
               Number(
-                parseBalance(BigInt(balance), dune.decimals)
+                parseBalance(BigInt(balance), mezcal.decimals)
               ).toLocaleString("en-US")
-            )}  ${chalk.gray(`[${duneId}]`)}`
+            )}  ${chalk.gray(`[${mezcalId}]`)}`
           );
-          this.balances[duneId] = Number(balance);
-          this.nameLookup[dune.name.toLowerCase()] = dune;
-          this.reverseNameLookup[duneId] = dune;
+          this.balances[mezcalId] = Number(balance);
+          this.nameLookup[mezcal.name.toLowerCase()] = mezcal;
+          this.reverseNameLookup[mezcalId] = mezcal;
         }
       }
     }
@@ -319,7 +321,7 @@ export default class WalletTransfer extends Command {
     await this.collectTransfers();
 
     // Build tx
-    const txRes = await getDunestoneTransaction(signer, {
+    const txRes = await getMezcalstoneTransaction(signer, {
       transfers: this.transfers,
     });
     if (isBoxedError(txRes)) {

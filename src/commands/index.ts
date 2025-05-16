@@ -11,21 +11,21 @@ import Balance from "./balance";
 import Etch from "./etch";
 import WalletSwitch from "./wallet/switch";
 import WalletTransfer from "./transfer";
-import DuneInfo from "./info";
-import DuneHolders from "./holders";
+import MezcalInfo from "./info";
+import MezcalHolders from "./holders";
 import Mint from "./mint";
-import AllDunes from "./all";
+import AllMezcals from "./all";
 
 export const commands: Record<string, typeof Command> = {
   wallets: Wallets,
-  all: AllDunes,
+  all: AllMezcals,
   "wallet:switch": WalletSwitch,
   "wallet:generate": WalletGenerate,
   "wallet:recover": WalletRecover,
   "wallet:reveal": WalletShowSeed,
   "wallet:info": WalletShowAddress,
-  info: DuneInfo,
-  holders: DuneHolders,
+  info: MezcalInfo,
+  holders: MezcalHolders,
   transfer: WalletTransfer,
   "config:set": ConfigSet,
   "config:show": ConfigShow,

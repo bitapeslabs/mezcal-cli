@@ -12,7 +12,7 @@ import { isBoxedError } from "@/lib/utils/boxed";
 export default class WalletInfo extends Command {
   static override description =
     "Show information about your current wallet address";
-  static override examples = ["$ dunes wallet info"];
+  static override examples = ["$ mezcal wallet info"];
 
   public override async run(): Promise<void> {
     const walletResponse = await getWallet(this);

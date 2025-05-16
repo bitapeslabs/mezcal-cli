@@ -27,17 +27,17 @@ function saveConfig(data: Record<string, string>) {
 }
 
 export default class ConfigSet extends Command {
-  static override description = "Set or show Dunes CLI configuration";
+  static override description = "Set or show Mezcals CLI configuration";
   static override examples = [
-    "$ dunes config set --electrum https://regtest.anoa.io/api",
-    "$ dunes config set --dunes http://api.dunes.sh",
-    "$ dunes config set --network regtest",
-    "$ dunes config set",
+    "$ mezcal config set --electrum https://regtest.anoa.io/api",
+    "$ mezcal config set --mezcal http://api.mezcal.sh",
+    "$ mezcal config set --network regtest",
+    "$ mezcal config set",
   ];
 
   static override flags = {
     electrum: z.string().optional().describe("Electrum API URL"),
-    dunes: z.string().optional().describe("Dunes RPC URL"),
+    mezcal: z.string().optional().describe("Mezcals RPC URL"),
     explorer: ExplorerSchema.optional().describe("Explorer URL"),
     network: NetworkSchema.optional().describe(
       "Network (bitcoin | testnet | regtest)"
@@ -58,13 +58,14 @@ export default class ConfigSet extends Command {
       updated = true;
     }
 
-    if (opts.dunes) {
-      const parsed = UrlSchema.safeParse(opts.dunes);
+    if (opts.mezcal) {
+      const parsed = UrlSchema.safeParse(opts.mezcal);
       if (!parsed.success) {
-        const msg = parsed.error.issues[0]?.message ?? "Invalid Dunes RPC URL";
-        this.error(`Invalid Dunes RPC URL: ${msg}`);
+        const msg =
+          parsed.error.issues[0]?.message ?? "Invalid Mezcals RPC URL";
+        this.error(`Invalid Mezcal RPC URL: ${msg}`);
       }
-      config.DUNES_RPC_URL = opts.dunes;
+      config.DUNES_RPC_URL = opts.mezcal;
       updated = true;
     }
 
@@ -82,14 +83,14 @@ export default class ConfigSet extends Command {
       saveConfig(config);
       this.log(chalk.green("✓ Configuration updated!"));
     } else {
-      this.log(chalk.bold("Available Dunes CLI configuration: \n"));
+      this.log(chalk.bold("Available Mezcal CLI configuration: \n"));
       this.log(
         `  • ${chalk.yellow("electrum")}: ${chalk.gray(
           config.ELECTRUM_API_URL || "not set"
         )}`
       );
       this.log(
-        `  • ${chalk.yellow("dunes")}:    ${chalk.gray(
+        `  • ${chalk.yellow("mezcal")}:    ${chalk.gray(
           config.DUNES_RPC_URL || "not set"
         )}`
       );
@@ -106,7 +107,7 @@ export default class ConfigSet extends Command {
       );
       this.log(
         chalk.gray(
-          "To update, use: dunes config set --electrum <url> --dunes <url> --network <env>"
+          "To update, use: mezcal config set --electrum <url> --mezcal <url> --network <env>"
         )
       );
     }

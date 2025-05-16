@@ -4,25 +4,26 @@ import { z } from "zod";
 
 import { Command } from "@/commands/base";
 import {
-  dunesrpc_getduneinfo,
-  dunesrpc_getDuneHolders,
-} from "@/lib/apis/dunes";
+  mezcalrpc_getmezcalinfo,
+  mezcalrpc_getMezcalHolders,
+} from "@/lib/apis/mezcal";
 import { isBoxedError } from "@/lib/utils/boxed";
 import { DEFAULT_ERROR } from "@/lib/consts";
-import { parseBalance } from "@/lib/dunes/utils";
+import { parseBalance } from "@/lib/mezcal/utils";
 
-export default class DuneInfo extends Command {
+export default class MezcalInfo extends Command {
   static override description =
-    "Show metadata and top holders for a Dune asset";
-  static override examples = ["$ dunes info 859:1"];
+    "Show metadata and top holders for a Mezcal asset";
+  static override examples = ["$ mezcal info 859:1"];
 
   public override async run(argv: string[]): Promise<void> {
-    const [duneId] = argv;
-    if (!duneId) return this.error("Usage: dunes info <block:tx | dunename>");
+    const [mezcalId] = argv;
+    if (!mezcalId)
+      return this.error("Usage: mezcal info <block:tx | mezcalname>");
 
     // ── fetch asset info
     const metaSpin = ora(`Fetching metadata…`).start();
-    const infoRes = await dunesrpc_getduneinfo(duneId);
+    const infoRes = await mezcalrpc_getmezcalinfo(mezcalId);
 
     metaSpin.stop();
     if (isBoxedError(infoRes))
@@ -31,7 +32,7 @@ export default class DuneInfo extends Command {
 
     // ── fetch first page of holders
     const holderSpin = ora("Fetching holders…").start();
-    const holdRes = await dunesrpc_getDuneHolders(duneId, 1, 10);
+    const holdRes = await mezcalrpc_getMezcalHolders(mezcalId, 1, 10);
     holderSpin.stop();
     if (isBoxedError(holdRes))
       return this.error(holdRes.message || DEFAULT_ERROR);
@@ -46,7 +47,7 @@ export default class DuneInfo extends Command {
 
     const rows: [string, string][] = [
       ["Has flex mint enabled", isFlex ? "yes" : "no"],
-      ["Protocol ID", d.dune_protocol_id],
+      ["Protocol ID", d.mezcal_protocol_id],
       ["Name", d.name],
       ["Symbol", d.symbol],
       ["Decimals", d.decimals.toString()],
@@ -68,7 +69,7 @@ export default class DuneInfo extends Command {
       ["Deployer", d.deployer_address],
     ];
 
-    this.log(chalk.bold.cyan("\nDune asset info\n"));
+    this.log(chalk.bold.cyan("\nMezcal asset info\n"));
     rows.forEach(([k, v]) =>
       this.log(`${chalk.gray(k.padEnd(14))} : ${chalk.yellowBright(v)}`)
     );

@@ -4,13 +4,13 @@ import ora from "ora";
 import { Command } from "@/commands/base";
 import { CURRENT_BTC_TICKER, GIT_ISSUE_URL } from "@/lib/consts";
 import { esplora_getaddressbalance } from "@/lib/apis/esplora";
-import { dunesrpc_getdunebalances } from "@/lib/apis/dunes";
+import { mezcalrpc_getmezcalbalances } from "@/lib/apis/mezcal";
 import { isBoxedError } from "@/lib/utils/boxed";
 import { getWallet } from "../shared";
-import { parseBalance } from "@/lib/dunes/utils";
+import { parseBalance } from "@/lib/mezcal/utils";
 export default class Balance extends Command {
-  static override description = `Show the confirmed ${CURRENT_BTC_TICKER} and Dune balances of your wallet address`;
-  static override examples = ["$ dunes balance"];
+  static override description = `Show the confirmed ${CURRENT_BTC_TICKER} and Mezcal balances of your wallet address`;
+  static override examples = ["$ mezcal balance"];
 
   public override async run(): Promise<void> {
     const walletResponse = await getWallet(this);
@@ -26,9 +26,9 @@ export default class Balance extends Command {
 
       const spinner = ora("Fetching balances...").start();
 
-      const [btcResult, duneResult] = await Promise.all([
+      const [btcResult, mezcalResult] = await Promise.all([
         esplora_getaddressbalance(address),
-        dunesrpc_getdunebalances(address),
+        mezcalrpc_getmezcalbalances(address),
       ]);
 
       spinner.stop();
@@ -40,8 +40,8 @@ export default class Balance extends Command {
         return;
       }
 
-      if (isBoxedError(duneResult)) {
-        this.error(`Failed to fetch Dune balances: ${duneResult.message}`);
+      if (isBoxedError(mezcalResult)) {
+        this.error(`Failed to fetch Mezcal balances: ${mezcalResult.message}`);
         return;
       }
 
@@ -49,19 +49,19 @@ export default class Balance extends Command {
       this.log(chalk.yellow.bold(`${CURRENT_BTC_TICKER} Balance:`));
       this.log(`  ${chalk.yellow.bold(`${btc} ${CURRENT_BTC_TICKER}`)}\n`);
 
-      const balances = duneResult.data?.balances;
+      const balances = mezcalResult.data?.balances;
       if (Object.keys(balances)?.length === 0) {
-        this.log(chalk.cyan("No Dunes found in this wallet.\n"));
+        this.log(chalk.cyan("No mezcals found in this wallet.\n"));
       } else {
-        this.log(chalk.cyan.bold("Dune Balances:"));
-        for (const [protocolId, { balance, dune }] of Object.entries(
+        this.log(chalk.cyan.bold("Mezcal Balances:"));
+        for (const [protocolId, { balance, mezcal }] of Object.entries(
           balances
         )) {
           this.log(
-            `  (${chalk.yellowBright(dune.name)}) ` +
-              `: ${chalk.green(dune.symbol)} ${chalk.bold(
+            `  (${chalk.yellowBright(mezcal.name)}) ` +
+              `: ${chalk.green(mezcal.symbol)} ${chalk.bold(
                 Number(
-                  parseBalance(BigInt(balance), dune.decimals)
+                  parseBalance(BigInt(balance), mezcal.decimals)
                 ).toLocaleString("en-US")
               )}   ${chalk.gray(`[${protocolId}]`)}`
           );

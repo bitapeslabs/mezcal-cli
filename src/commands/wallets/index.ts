@@ -17,7 +17,7 @@ import { getDecryptedWalletFromPassword, getWallet } from "../shared";
 export default class WalletList extends Command {
   static override description =
     "List all generated wallet addresses and balances";
-  static override examples = ["$ dunes wallets"];
+  static override examples = ["$ mezcal wallets"];
 
   public override async run(): Promise<void> {
     const walletResponse = await getWallet(this);

@@ -10,7 +10,7 @@ import { SavedWallet, switchWallet } from "@/lib/crypto/wallet";
 
 export default class WalletSwitch extends Command {
   static override description = "Switch to another index in your HD wallet";
-  static override examples = ["$ dunes wallet switch 2"];
+  static override examples = ["$ mezcal wallet switch 2"];
 
   public override async run(args: string[]): Promise<void> {
     let index: number | undefined = undefined;

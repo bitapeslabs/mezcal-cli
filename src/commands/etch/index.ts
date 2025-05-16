@@ -20,17 +20,17 @@ import {
   esplora_getfee,
   esplora_broadcastTx,
 } from "@/lib/apis/esplora";
-import { getDunestoneTransaction } from "@/lib/dunes";
+import { getMezcalstoneTransaction } from "@/lib/mezcal";
 import { getWitnessUtxo } from "@/lib/crypto/wallet";
 import { DEFAULT_ERROR } from "@/lib/consts";
 import { isBoxedError } from "@/lib/utils/boxed";
 import { getDecryptedWalletFromPassword, getWallet } from "../shared";
-import { IEtching, ITerms } from "@/lib/dunes/dunestone";
+import { IEtching, ITerms } from "@/lib/mezcal/mezcalstone";
 
 type Step =
   | "divisibility"
   | "premine"
-  | "dune"
+  | "mezcal"
   | "symbol"
   | "turbo"
   | "includeTerms"
@@ -45,15 +45,15 @@ type Step =
   | "pricePayTo";
 
 export default class Etch extends Command {
-  static override description = "Create a Dunestone etching and build a tx";
-  static override examples = ["$ dunes etch"];
+  static override description = "Create a Mezcalstone etching and build a tx";
+  static override examples = ["$ mezcal etch"];
 
   private async promptLoop(): Promise<any> {
     const state: Record<string, any> = {};
     const steps: Step[] = [
       "divisibility",
       "premine",
-      "dune",
+      "mezcal",
       "symbol",
       "turbo",
       "includeTerms",
@@ -123,11 +123,11 @@ export default class Etch extends Command {
           name: step,
           message: "Premine amount (u128 string):",
         };
-      case "dune":
+      case "mezcal":
         return {
           type: "input",
           name: step,
-          message: "Dune name (1‑31 chars A‑Z a‑z 0‑9 _ . -):",
+          message: "Mezcal name (1‑31 chars A‑Z a‑z 0‑9 _ . -):",
           validate: (s: string) =>
             s === "/back" ||
             (/^[A-Za-z0-9_.-]{1,31}$/.test(s) ? true : "Invalid name"),
@@ -232,14 +232,14 @@ export default class Etch extends Command {
     const { signer: walletSigner } = walletSignerResult.data;
 
     this.log(
-      chalk.bold("\nDunestone Etching Wizard (type '/back' to go back)\n")
+      chalk.bold("\nMezcalstone Etching Wizard (type '/back' to go back)\n")
     );
     const answers = await this.promptLoop();
 
     const etching: IEtching = {
       divisibility: Number(answers.divisibility),
       premine: answers.premine,
-      dune: answers.dune,
+      mezcal: answers.mezcal,
       symbol: answers.symbol,
       turbo: answers.turbo,
       terms: null,
@@ -271,19 +271,19 @@ export default class Etch extends Command {
       etching.terms = terms;
     }
 
-    const duneTx = await getDunestoneTransaction(walletSigner, {
-      partialDunestone: { etching },
+    const mezcalTx = await getMezcalstoneTransaction(walletSigner, {
+      partialMezcalstone: { etching },
       transfers: [],
     });
 
-    if (isBoxedError(duneTx)) {
-      this.error(duneTx.message ?? DEFAULT_ERROR + `(etch-1)`);
+    if (isBoxedError(mezcalTx)) {
+      this.error(mezcalTx.message ?? DEFAULT_ERROR + `(etch-1)`);
       return;
     }
 
     const txSpinner = ora("Broadcasting transaction...").start();
 
-    let response = await esplora_broadcastTx(duneTx.data.toHex());
+    let response = await esplora_broadcastTx(mezcalTx.data.toHex());
 
     if (isBoxedError(response)) {
       txSpinner.fail("Failed to broadcast transaction.");

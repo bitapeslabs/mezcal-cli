@@ -1,6 +1,6 @@
-# dunes-cli
+# mezcal-cli
 
-The **dunes-cli** is an interactive command‑line tool for managing a bitcoin dunes wallet and interacting with Dune assets. It supports wallet generation, recovery, switching addresses, querying balances, transferring funds, minting and etching Dune tokens, configuration management, and more.
+The **mezcal-cli** is an interactive command‑line tool for managing a bitcoin mezcal wallet and interacting with Mezcal assets. It supports wallet generation, recovery, switching addresses, querying balances, transferring funds, minting and etching Mezcal tokens, configuration management, and more.
 
 ## 🚀 Installation
 
@@ -8,18 +8,18 @@ The **dunes-cli** is an interactive command‑line tool for managing a bitcoin d
 2. On your command line terminal, run:
 
    ```sh
-   npm install -g dunes-cli
+   npm install -g mezcal-cli
    ```
 
-3. Youre all set! You can now use the `dunes` command in your terminal. To view the commands you can call, run
+3. Youre all set! You can now use the `mezcal` command in your terminal. To view the commands you can call, run
 
    ```sh
-   dunes --help
+   mezcal --help
    ```
 
 ## 📚 Command Reference
 
-The CLI command is invoked as `dunes`. Below are the available commands along with usage examples:
+The CLI command is invoked as `mezcal`. Below are the available commands along with usage examples:
 
 ### Wallet Commands
 
@@ -28,7 +28,7 @@ The CLI command is invoked as `dunes`. Below are the available commands along wi
   - Generates a new wallet address (or switches to the next index if a wallet already exists).
   - **Usage:**
     ```sh
-    dunes wallet generate
+    mezcal wallet generate
     ```
   - Example output shows the new wallet index and address.
 
@@ -37,7 +37,7 @@ The CLI command is invoked as `dunes`. Below are the available commands along wi
   - Recovers a wallet from a 12‑word mnemonic phrase.
   - **Usage:**
     ```sh
-    dunes wallet recover
+    mezcal wallet recover
     ```
   - Follow the prompts to enter your mnemonic phrase and set a password.
 
@@ -45,99 +45,99 @@ The CLI command is invoked as `dunes`. Below are the available commands along wi
   - Displays the mnemonic phrase for your active wallet.
   - **Usage:**
     ```sh
-    dunes wallet reveal
+    mezcal wallet reveal
     ```
 - **Show Wallet Info**
   - Displays the current wallet address.
   - **Usage:**
     ```sh
-    dunes wallet info
+    mezcal wallet info
     ```
 - **Switch Wallet**
   - Switches to another HD wallet index.
   - **Usage:**
     ```sh
-    dunes wallet switch <index>
+    mezcal wallet switch <index>
     ```
   - Example:
     ```sh
-    dunes wallet switch 2
+    mezcal wallet switch 2
     ```
 - **List Wallets**
   - Lists all generated wallet addresses and their balances.
   - **Usage:**
     ```sh
-    dunes wallets
+    mezcal wallets
     ```
 
 ### Balance & Transfer Commands
 
 - **Balance**
 
-  - Display confirmed BTC and Dune balances for your wallet address.
+  - Display confirmed BTC and Mezcal balances for your wallet address.
   - **Usage:**
     ```sh
-    dunes balance
+    mezcal balance
     ```
 
 - **Transfer**
-  - Interactively build and broadcast BTC and/or Dune transfers.
+  - Interactively build and broadcast BTC and/or Mezcal transfers.
   - **Usage:**
     ```sh
-    dunes transfer
+    mezcal transfer
     ```
   - Follow the interactive prompts to enter transfer details.
 
-### Dune Asset Commands
+### Mezcal Asset Commands
 
-- **Dune Info**
+- **Mezcal Info**
 
-  - Shows metadata and the top holders for a Dune asset.
+  - Shows metadata and the top holders for a Mezcal asset.
   - **Usage:**
     ```sh
-    dunes info <block:tx | duneName>
+    mezcal info <block:tx | mezcalName>
     ```
   - Example:
     ```sh
-    dunes info 859:1
+    mezcal info 859:1
     ```
 
-**= Discover dunes =**
+**= Discover mezcal =**
 
-- **Dune List**
+- **Mezcal List**
 
-  - Lists all Dunes on the network.
+  - Lists all Mezcals on the network.
   - **Usage:**
     ```sh
-    dunes all <protocol>
+    mezcal all <protocol>
     ```
 
 - **Holders**
 
-  - Lists holders for a specific Dune asset.
+  - Lists holders for a specific Mezcal asset.
   - **Usage:**
     ```sh
-    dunes holders <block:tx | duneName> [page]
+    mezcal holders <block:tx | mezcalName> [page]
     ```
   - Example:
     ```sh
-    dunes holders 859:1 3
+    mezcal holders 859:1 3
     ```
 
 - **Mint**
 
-  - Mint a Dune token that you have already etched (if mintable).
+  - Mint a Mezcal token that you have already etched (if mintable).
   - **Usage:**
     ```sh
-    dunes mint <block:tx | duneName>
+    mezcal mint <block:tx | mezcalName>
     ```
   - Follows prompts for mint cost and confirmation.
 
 - **Etch**
-  - Create a Dunestone etching and build a transaction.
+  - Create a Mezcalstone etching and build a transaction.
   - **Usage:**
     ```sh
-    dunes etch
+    mezcal etch
     ```
   - A guided wizard walks you through setting etching properties.
 
@@ -145,25 +145,25 @@ The CLI command is invoked as `dunes`. Below are the available commands along wi
 
 - **Set Configuration**
 
-  - Set Electrum API URL, Dunes RPC URL, or Network (bitcoin | testnet | regtest).
+  - Set Electrum API URL, Mezcals RPC URL, or Network (bitcoin | testnet | regtest).
   - **Usage:**
     ```sh
-    dunes config set --electrum <url> --dunes <url> --network <env>
+    mezcal config set --electrum <url> --mezcal <url> --network <env>
     ```
   - Example:
     ```sh
-    dunes config set --electrum https://regtest.anoa.io/api --network regtest
+    mezcal config set --electrum https://regtest.anoa.io/api --network regtest
     ```
 
 - **Show Configuration**
-  - Display the current Dunes CLI configuration.
+  - Display the current Mezcals CLI configuration.
   - **Usage:**
     ```sh
-    dunes config show
+    mezcal config show
     ```
   - You may also run:
     ```sh
-    dunes config
+    mezcal config
     ```
 
-For more details or to report issues, please visit the [GitHub Issue Tracker](https://github.com/bitapeslabs/dunes-cli/issues).
+For more details or to report issues, please visit the [GitHub Issue Tracker](https://github.com/bitapeslabs/mezcal-cli/issues).

@@ -2,9 +2,11 @@ import sade from "sade";
 import chalk from "chalk";
 import commands from "./commands";
 
-const prog = sade("dunes");
+const prog = sade("mezcal");
 
-prog.version("0.8.0").describe(chalk.yellow("The official Dunes utility CLI"));
+prog
+  .version("0.8.0")
+  .describe(chalk.yellow("The official Mezcals utility CLI"));
 
 Object.entries(commands).forEach(([name, CommandClass]) => {
   let cmd = prog

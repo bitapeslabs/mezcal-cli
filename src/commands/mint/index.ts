@@ -5,57 +5,58 @@ import { z } from "zod";
 
 import { Command } from "@/commands/base";
 import {
-  dunesrpc_getduneinfo,
-  dunesrpc_getDuneHolders,
-} from "@/lib/apis/dunes";
+  mezcalrpc_getmezcalinfo,
+  mezcalrpc_getMezcalHolders,
+} from "@/lib/apis/mezcal";
 import {
   esplora_getaddressbalance,
   esplora_broadcastTx,
 } from "@/lib/apis/esplora";
 import { getWallet, getDecryptedWalletFromPassword } from "../shared";
 import { isBoxedError } from "@/lib/utils/boxed";
-import { getDunestoneTransaction, SingularBTCTransfer } from "@/lib/dunes";
+import { getMezcalstoneTransaction, SingularBTCTransfer } from "@/lib/mezcal";
 import { CURRENT_BTC_TICKER, DEFAULT_ERROR, EXPLORER_URL } from "@/lib/consts";
 import type { WalletSigner } from "@/lib/crypto/wallet";
-import { Dune } from "@/lib/apis/dunes/types";
+import { Mezcal } from "@/lib/apis/mezcal/types";
 import { btcToSats } from "@/lib/crypto/utils";
 
 export default class Mint extends Command {
   static override description =
-    "Mint a Dune token you already etched (if mintable)";
-  static override examples = ["$ dunes mint 3911:1"];
+    "Mint a Mezcal token you already etched (if mintable)";
+  static override examples = ["$ mezcal mint 3911:1"];
 
   public override async run(argv: string[]): Promise<void> {
-    const [duneId] = argv;
-    if (!duneId) return this.error("Usage: dunes mint <block:tx | duneName>");
+    const [mezcalId] = argv;
+    if (!mezcalId)
+      return this.error("Usage: mezcal mint <block:tx | mezcalName>");
 
-    // fetch Dune info
-    const spin = ora("Fetching dune info…").start();
-    const infoRes = await dunesrpc_getduneinfo(duneId);
+    // fetch Mezcal info
+    const spin = ora("Fetching mezcal info…").start();
+    const infoRes = await mezcalrpc_getmezcalinfo(mezcalId);
     spin.stop();
     if (isBoxedError(infoRes))
       return this.error(infoRes.message || DEFAULT_ERROR);
 
-    const dune = infoRes.data as Dune;
+    const mezcal = infoRes.data as Mezcal;
 
     // mintability check
-    if (dune.mint_amount === null) {
-      return this.error("This dune is unmintable.");
+    if (mezcal.mint_amount === null) {
+      return this.error("This mezcal is unmintable.");
     }
 
-    let isFlex = dune.mint_amount === "0" && dune?.price_amount;
+    let isFlex = mezcal.mint_amount === "0" && mezcal?.price_amount;
 
     // if price defined → warn & confirm
     let satCost = 0;
     let payTo = "";
-    if (dune.price_amount && dune.price_pay_to && !isFlex) {
-      satCost = Number(dune.price_amount); // already sats
-      payTo = dune.price_pay_to;
+    if (mezcal.price_amount && mezcal.price_pay_to && !isFlex) {
+      satCost = Number(mezcal.price_amount); // already sats
+      payTo = mezcal.price_pay_to;
 
       const btcCost = (satCost / 1e8).toFixed(8);
       this.log(
         chalk.yellow(
-          `\nThis dune has a cost of ${satCost.toLocaleString()} sats (${btcCost} ${CURRENT_BTC_TICKER}) to mint, payable to ${payTo}`
+          `\nThis mezcal has a cost of ${satCost.toLocaleString()} sats (${btcCost} ${CURRENT_BTC_TICKER}) to mint, payable to ${payTo}`
         )
       );
       const { confirm } = await inquirer.prompt<{ confirm: boolean }>([
@@ -72,24 +73,25 @@ export default class Mint extends Command {
       }
     }
 
-    if (isFlex && dune.price_amount && dune.price_pay_to) {
-      payTo = dune.price_pay_to;
+    if (isFlex && mezcal.price_amount && mezcal.price_pay_to) {
+      payTo = mezcal.price_pay_to;
 
-      this.log(chalk.green(`✔ Dune has flex mint enabled`));
+      this.log(chalk.green(`✔ Mezcal has flex mint enabled`));
 
       this.log(
         chalk.yellow(
-          `\nUnlimited minting, the cost is ${dune.price_amount} sat(s) per ${(
-            1 /
-            10 ** dune.decimals
-          ).toFixed(dune.decimals)} ${dune.name}`
+          `\nUnlimited minting, the cost is ${
+            mezcal.price_amount
+          } sat(s) per ${(1 / 10 ** mezcal.decimals).toFixed(
+            mezcal.decimals
+          )} ${mezcal.name}`
         )
       );
       const { amount } = await inquirer.prompt<{ amount: number }>([
         {
           type: "input",
           name: "amount",
-          message: `Enter how many units of ${dune.name} you want to mint (0 to cancel):`,
+          message: `Enter how many units of ${mezcal.name} you want to mint (0 to cancel):`,
           validate: (input) => {
             const value = Number(input);
             if (isNaN(value)) return "Please enter a valid number.";
@@ -104,8 +106,8 @@ export default class Mint extends Command {
       }
       satCost =
         Number(amount) *
-        10 ** Number(dune.decimals) *
-        Number(dune.price_amount);
+        10 ** Number(mezcal.decimals) *
+        Number(mezcal.price_amount);
     }
 
     // wallet & password
@@ -149,8 +151,8 @@ export default class Mint extends Command {
           ]
         : [];
 
-    const txRes = await getDunestoneTransaction(signer, {
-      partialDunestone: { mint: infoRes.data.dune_protocol_id },
+    const txRes = await getMezcalstoneTransaction(signer, {
+      partialMezcalstone: { mint: infoRes.data.mezcal_protocol_id },
       transfers: transfers,
     });
     if (isBoxedError(txRes)) return this.error(txRes.message || DEFAULT_ERROR);

@@ -14,7 +14,7 @@ import { WALLET_PATH } from "@/lib/consts";
 
 export default class WalletRecover extends Command {
   static override description = "Recover a wallet from a mnemonic phrase";
-  static override examples = ["$ dunes wallet recover"];
+  static override examples = ["$ mezcal wallet recover"];
 
   public override async run(
     args: string[],
@@ -93,7 +93,7 @@ export default class WalletRecover extends Command {
     );
     this.log(
       chalk.gray(
-        "You can reprint your mnemonic any time with `dunes wallet show`"
+        "You can reprint your mnemonic any time with `mezcal wallet show`"
       )
     );
   }
