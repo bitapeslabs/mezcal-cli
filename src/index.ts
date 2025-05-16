@@ -4,9 +4,7 @@ import commands from "./commands";
 
 const prog = sade("mezcal");
 
-prog
-  .version("0.8.0")
-  .describe(chalk.yellow("The official Mezcals utility CLI"));
+prog.version("0.8.0").describe(chalk.yellow("The official Mezcal utility CLI"));
 
 Object.entries(commands).forEach(([name, CommandClass]) => {
   let cmd = prog
