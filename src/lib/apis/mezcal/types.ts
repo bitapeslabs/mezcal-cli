@@ -17,6 +17,7 @@ export interface Mezcal {
   mint_end: number | null;
   mint_offset_start: number | null;
   mint_offset_end: number | null;
+  total_holders: number;
   mint_amount: string | null;
   burnt_amount: string;
   unmintable: number;

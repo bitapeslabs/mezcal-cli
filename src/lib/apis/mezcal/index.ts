@@ -54,7 +54,7 @@ export async function mezcalrpc_getutxos(
 export async function mezcalrpc_getMezcalUtxoBalances(
   address: string
 ): Promise<BoxedResponse<MezcalUtxoBalance[], MezcalFetchError>> {
-  const url = `${DUNES_RPC_URL}/mezcal/utxos/balances/${address}`;
+  const url = `${DUNES_RPC_URL}/mezcal/utxos/${address}`;
   const res = await fetch(url);
 
   if (!res.ok) {
