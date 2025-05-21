@@ -3,6 +3,7 @@ import {
   EsploraAddressResponse,
   EsploraFetchError,
   EsploraUtxo,
+  IEsploraTransaction,
 } from "./types";
 import { satsToBTC } from "@/lib/crypto/utils";
 import {
@@ -105,4 +106,29 @@ export async function esplora_broadcastTx(
 
   const txid = await res.text(); // response is just the txid as plain text
   return new BoxedSuccess(txid.trim());
+}
+
+/**
+ * Fetch transactions for an address.
+ * If `lastSeenTxid` is provided, fetch the *next* page after that tx
+ * (Esplora’s “chain” pagination). Otherwise fetch the first page.
+ */
+export async function esplora_getaddresstxs(
+  address: string,
+  lastSeenTxid?: string
+): Promise<BoxedResponse<IEsploraTransaction[], EsploraFetchError>> {
+  const base = `${ELECTRUM_API_URL}/address/${address}/txs`;
+  const url = lastSeenTxid ? `${base}/chain/${lastSeenTxid}` : base;
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    return new BoxedError(
+      EsploraFetchError.UnknownError,
+      `Failed to fetch transactions from ${url}: ${res.statusText}`
+    );
+  }
+
+  const json = await res.json();
+  // Esplora returns an array; cast to our typed interface
+  return new BoxedSuccess(json as IEsploraTransaction[]);
 }

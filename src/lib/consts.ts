@@ -14,7 +14,7 @@ export const GIT_ISSUE_URL = "https://github.com/bitapeslabs/mezcal-cli/issues";
 const defaults = {
   ELECTRUM_API_URL: "https://testnet.mezcal.sh",
   DUNES_RPC_URL: "https://api.mezcal.sh",
-  EXPLORER_URL: "https://mempool.space/testnet",
+  EXPLORER_URL: "https://mempool.space/testnet/",
   NETWORK: "testnet", // <- new default
 };
 
