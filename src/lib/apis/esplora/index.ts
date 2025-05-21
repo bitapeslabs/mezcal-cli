@@ -1,4 +1,4 @@
-import { ELECTRUM_API_URL } from "@/lib/consts";
+import { ELECTRUM_API_URL, GAS_MULTIPLIER } from "@/lib/consts";
 import {
   EsploraAddressResponse,
   EsploraFetchError,
@@ -82,7 +82,7 @@ export async function esplora_getfee(): Promise<
     );
   }
 
-  return new BoxedSuccess(Number(json["1"]) * 1.5);
+  return new BoxedSuccess(Number(json["1"]) * GAS_MULTIPLIER);
 }
 
 export async function esplora_broadcastTx(
