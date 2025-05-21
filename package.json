@@ -1,6 +1,6 @@
 {
   "name": "mezcal-cli",
-  "version": "1.0.6",
+  "version": "1.0.8",
   "main": "index.js",
   "bin": {
     "mezcal": "./dist/index.js"

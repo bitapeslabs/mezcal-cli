@@ -18,7 +18,7 @@ import {
   esplora_getutxos,
   esplora_getaddressbalance,
   esplora_getfee,
-  esplora_broadcastTx,
+  esplora_submittxthroughproviders,
 } from "@/lib/apis/esplora";
 import { getMezcalstoneTransaction } from "@/lib/mezcal";
 import { getWitnessUtxo } from "@/lib/crypto/wallet";
@@ -127,7 +127,8 @@ export default class Etch extends Command {
         return {
           type: "input",
           name: step,
-          message: "Mezcal name (1‑31 chars A‑Z a‑z 0‑9 _ . -):",
+          message:
+            "Mezcal name (1‑15 chars, ONLY lowercase alphanumeric and the '-' symbol):",
           validate: (s: string) =>
             s === "/back" ||
             (/^[A-Za-z0-9_.-]{1,31}$/.test(s) ? true : "Invalid name"),
@@ -283,7 +284,9 @@ export default class Etch extends Command {
 
     const txSpinner = ora("Broadcasting transaction...").start();
 
-    let response = await esplora_broadcastTx(mezcalTx.data.toHex());
+    let response = await esplora_submittxthroughproviders(
+      mezcalTx.data.toHex()
+    );
 
     if (isBoxedError(response)) {
       txSpinner.fail("Failed to broadcast transaction.");

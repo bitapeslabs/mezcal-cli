@@ -13,6 +13,7 @@ export const GIT_ISSUE_URL = "https://github.com/bitapeslabs/mezcal-cli/issues";
 
 const defaults = {
   ELECTRUM_API_URL: "https://testnet.mezcal.sh",
+  BACKUP_ELECTRUM_API_URL_1: "https://mempool.space/testnet/api",
   DUNES_RPC_URL: "https://api.mezcal.sh",
   EXPLORER_URL: "https://mempool.space/testnet",
   NETWORK: "testnet", // <- new default
@@ -40,6 +41,8 @@ export const CURRENT_BTC_TICKER =
 
 export const ELECTRUM_API_URL =
   configOverrides.ELECTRUM_API_URL ?? defaults.ELECTRUM_API_URL;
+
+export const BACKUP_ELECTRUM_API_URL_1 = defaults.BACKUP_ELECTRUM_API_URL_1;
 
 export const DUNES_RPC_URL =
   configOverrides.DUNES_RPC_URL ?? defaults.DUNES_RPC_URL;

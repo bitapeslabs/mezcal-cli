@@ -12,6 +12,7 @@ import {
   BoxedSuccess,
   isBoxedError,
 } from "@/lib/utils/boxed";
+import { BACKUP_ELECTRUM_API_URL_1 } from "@/lib/consts";
 
 export async function esplora_getaddress(
   address: string
@@ -86,9 +87,10 @@ export async function esplora_getfee(): Promise<
 }
 
 export async function esplora_broadcastTx(
-  rawHex: string
+  rawHex: string,
+  electrumProvider?: string
 ): Promise<BoxedResponse<string, EsploraFetchError>> {
-  const url = `${ELECTRUM_API_URL}/tx`;
+  const url = `${electrumProvider ?? ELECTRUM_API_URL}/tx`;
 
   const res = await fetch(url, {
     method: "POST",
@@ -131,4 +133,26 @@ export async function esplora_getaddresstxs(
   const json = await res.json();
   // Esplora returns an array; cast to our typed interface
   return new BoxedSuccess(json as IEsploraTransaction[]);
+}
+
+export async function esplora_submittxthroughproviders(
+  tx: string
+): Promise<BoxedResponse<string, EsploraFetchError>> {
+  let results = await Promise.all([
+    esplora_broadcastTx(tx),
+    esplora_broadcastTx(tx, BACKUP_ELECTRUM_API_URL_1),
+  ]);
+
+  if (!isBoxedError(results[0])) {
+    return new BoxedSuccess(results[0].data.trim());
+  }
+
+  if (!isBoxedError(results[1])) {
+    return new BoxedSuccess(results[1].data.trim());
+  }
+
+  return new BoxedError(
+    EsploraFetchError.UnknownError,
+    `Failed to broadcast transaction: ${results[0].message} | ${results[1].message}`
+  );
 }

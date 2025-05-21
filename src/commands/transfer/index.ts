@@ -6,7 +6,7 @@ import { EXPLORER_URL } from "@/lib/consts";
 import { Command } from "@/commands/base";
 import {
   esplora_getaddressbalance,
-  esplora_broadcastTx,
+  esplora_submittxthroughproviders,
 } from "@/lib/apis/esplora";
 import {
   mezcalrpc_getmezcalbalances,
@@ -330,7 +330,7 @@ export default class WalletTransfer extends Command {
 
     // Broadcast
     const bSpin = ora("Broadcasting...").start();
-    const br = await esplora_broadcastTx(txRes.data.toHex());
+    const br = await esplora_submittxthroughproviders(txRes.data.toHex());
     if (isBoxedError(br)) {
       bSpin.fail("Broadcast error");
       return this.error(br.message || DEFAULT_ERROR);
