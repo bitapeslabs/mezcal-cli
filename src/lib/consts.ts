@@ -72,4 +72,4 @@ export const setChosenWallet = (wallet: number) => {
   CHOSEN_WALLET = wallet;
 };
 
-export const GAS_MULTIPLIER = 5; // 50% more than the average fee
+export const GAS_MULTIPLIER = 10; // 1000% more than the average fee
