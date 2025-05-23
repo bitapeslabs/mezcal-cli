@@ -20,6 +20,7 @@ export type EsploraUtxo = {
   txid: string;
   vout: number;
   value: number;
+  prevtx_hex: string;
   status: {
     confirmed: boolean;
     block_height?: number;
@@ -72,4 +73,11 @@ export type IEsploraTransaction = {
   weight: number;
   fee: number;
   status: IEsploraTransactionStatus;
+};
+
+export type IEsploraSpendableUtxo = {
+  txid: string;
+  vout: number;
+  value: number;
+  prevTx: IEsploraTransaction & { hex: string };
 };

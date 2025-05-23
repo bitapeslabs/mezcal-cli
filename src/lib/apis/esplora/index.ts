@@ -3,17 +3,17 @@ import {
   EsploraAddressResponse,
   EsploraFetchError,
   EsploraUtxo,
+  IEsploraSpendableUtxo,
   IEsploraTransaction,
 } from "./types";
-import { satsToBTC } from "@/lib/crypto/utils";
+import { getEsploraTransactionWithHex, satsToBTC } from "@/lib/crypto/utils";
 import {
   BoxedResponse,
   BoxedError,
   BoxedSuccess,
   isBoxedError,
 } from "@/lib/utils/boxed";
-import { BACKUP_ELECTRUM_API_URL_1 } from "@/lib/consts";
-
+import { get } from "http";
 export async function esplora_getaddress(
   address: string
 ): Promise<BoxedResponse<EsploraAddressResponse, EsploraFetchError>> {
@@ -57,8 +57,33 @@ export async function esplora_getutxos(
     );
   }
 
-  const json = await res.json();
-  return new BoxedSuccess(json as EsploraUtxo[]);
+  const utxos: Omit<EsploraUtxo, "prevtx_hex">[] = await res.json();
+
+  // 1. Deduplicate txids
+  const uniqueTxids = [...new Set(utxos.map((u) => u.txid))];
+
+  // 2. Fetch raw tx hex for each txid in parallel
+  const rawTxMap = new Map<string, string>();
+  await Promise.all(
+    uniqueTxids.map(async (txid) => {
+      const txUrl = `${ELECTRUM_API_URL}/tx/${txid}/hex`;
+      const txRes = await fetch(txUrl);
+      if (txRes.ok) {
+        const hex = await txRes.text();
+        rawTxMap.set(txid, hex);
+      } else {
+        rawTxMap.set(txid, ""); // still return something, maybe log if needed
+      }
+    })
+  );
+
+  // 3. Attach prevtx_hex to each UTXO
+  const enriched: EsploraUtxo[] = utxos.map((u) => ({
+    ...u,
+    prevtx_hex: rawTxMap.get(u.txid) ?? "",
+  }));
+
+  return new BoxedSuccess(enriched);
 }
 
 export async function esplora_getfee(): Promise<
@@ -135,24 +160,57 @@ export async function esplora_getaddresstxs(
   return new BoxedSuccess(json as IEsploraTransaction[]);
 }
 
-export async function esplora_submittxthroughproviders(
-  tx: string
-): Promise<BoxedResponse<string, EsploraFetchError>> {
-  let results = await Promise.all([
-    esplora_broadcastTx(tx),
-    esplora_broadcastTx(tx, BACKUP_ELECTRUM_API_URL_1),
-  ]);
+export async function esplora_getbulktransactions(
+  txids: string[]
+): Promise<BoxedResponse<IEsploraTransaction[], EsploraFetchError>> {
+  const url = `${ELECTRUM_API_URL}/txs`;
 
-  if (!isBoxedError(results[0])) {
-    return new BoxedSuccess(results[0].data.trim());
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ txs: txids }),
+  });
+  if (!res.ok) {
+    return new BoxedError(
+      EsploraFetchError.UnknownError,
+      `Failed to fetch transactions from ${url}: ${res.statusText}`
+    );
   }
 
-  if (!isBoxedError(results[1])) {
-    return new BoxedSuccess(results[1].data.trim());
-  }
-
-  return new BoxedError(
-    EsploraFetchError.UnknownError,
-    `Failed to broadcast transaction: ${results[0].message} | ${results[1].message}`
-  );
+  const json = await res.json();
+  // Esplora returns an array; cast to our typed interface
+  return new BoxedSuccess(json as IEsploraTransaction[]);
 }
+
+export const esplora_getspendableinputs = async (
+  inputs: EsploraUtxo[]
+): Promise<BoxedResponse<IEsploraSpendableUtxo[], EsploraFetchError>> => {
+  let fullTransactionsResponse = await esplora_getbulktransactions(
+    inputs.map((input) => input.txid)
+  );
+
+  if (isBoxedError(fullTransactionsResponse)) {
+    return fullTransactionsResponse;
+  }
+
+  const inputsMap = new Map(inputs.map((input) => [input.txid, input]));
+
+  const fullTransactions = fullTransactionsResponse.data;
+
+  let response: IEsploraSpendableUtxo[] = [];
+
+  for (const tx of fullTransactions) {
+    const input = inputsMap.get(tx.txid);
+    if (!input) {
+      return new BoxedError(
+        EsploraFetchError.UnknownError,
+        `Input not found in inputs map for txid: ${tx.txid}`
+      );
+    }
+    response.push({
+      ...input,
+      prevTx: getEsploraTransactionWithHex(tx),
+    });
+  }
+  return new BoxedSuccess(response);
+};

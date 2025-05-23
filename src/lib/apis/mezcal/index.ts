@@ -1,4 +1,4 @@
-import { DUNES_RPC_URL } from "@/lib/consts";
+import { MEZCAL_RPC_URL } from "@/lib/consts";
 import {
   Mezcal,
   MezcalUtxoBalance,
@@ -13,7 +13,7 @@ import { BoxedResponse, BoxedSuccess, BoxedError } from "@/lib/utils/boxed";
 export async function mezcalrpc_getmezcalbalances(
   address: string
 ): Promise<BoxedResponse<MezcalBalanceResponse, MezcalFetchError>> {
-  const url = `${DUNES_RPC_URL}/mezcal/balances/address/${address}`;
+  const url = `${MEZCAL_RPC_URL}/mezcal/balances/address/${address}`;
   const res = await fetch(url);
 
   if (!res.ok) {
@@ -35,7 +35,7 @@ export async function mezcalrpc_getmezcalbalances(
 export async function mezcalrpc_getutxos(
   address: string
 ): Promise<BoxedResponse<MezcalUtxo[], MezcalFetchError>> {
-  const url = `${DUNES_RPC_URL}/utxos/${address}`;
+  const url = `${MEZCAL_RPC_URL}/utxos/${address}`;
   const res = await fetch(url);
 
   if (!res.ok) {
@@ -54,7 +54,7 @@ export async function mezcalrpc_getutxos(
 export async function mezcalrpc_getMezcalUtxoBalances(
   address: string
 ): Promise<BoxedResponse<MezcalUtxoBalance[], MezcalFetchError>> {
-  const url = `${DUNES_RPC_URL}/mezcal/utxos/${address}`;
+  const url = `${MEZCAL_RPC_URL}/mezcal/utxos/${address}`;
   const res = await fetch(url);
 
   if (!res.ok) {
@@ -73,7 +73,7 @@ export async function mezcalrpc_getMezcalUtxoBalances(
 export async function mezcalrpc_getmezcalinfo(
   protocolId: string
 ): Promise<BoxedResponse<Mezcal, MezcalFetchError>> {
-  const url = `${DUNES_RPC_URL}/mezcal/etchings/info/${protocolId}`;
+  const url = `${MEZCAL_RPC_URL}/mezcal/etchings/info/${protocolId}`;
   const res = await fetch(url);
 
   if (!res.ok) {
@@ -92,7 +92,7 @@ export async function mezcalrpc_getMezcalHolders(
   page: number = 1,
   limit: number = 100
 ): Promise<BoxedResponse<MezcalHoldersResponse, MezcalFetchError>> {
-  const url = `${DUNES_RPC_URL}/mezcal/etchings/holders/${protocolId}?page=${page}&limit=${limit}`;
+  const url = `${MEZCAL_RPC_URL}/mezcal/etchings/holders/${protocolId}?page=${page}&limit=${limit}`;
   const res = await fetch(url);
 
   if (!res.ok) {
@@ -110,7 +110,7 @@ export async function mezcalrpc_getAllMezcals(
   page: number = 1,
   limit: number = 100
 ): Promise<BoxedResponse<AllMezcalsResponse, MezcalFetchError>> {
-  const url = `${DUNES_RPC_URL}/mezcal/etchings/all?page=${page}&limit=${limit}`;
+  const url = `${MEZCAL_RPC_URL}/mezcal/etchings/all?page=${page}&limit=${limit}`;
   const res = await fetch(url);
 
   if (!res.ok) {

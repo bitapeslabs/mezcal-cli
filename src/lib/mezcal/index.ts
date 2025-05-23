@@ -1,16 +1,19 @@
-import { Psbt, payments, Transaction } from "bitcoinjs-lib";
+import { Psbt, payments, Transaction, script } from "bitcoinjs-lib";
 import {
   MezcalstoneSchema,
   EtchingSchema,
-  IMezcalstone,
+  IMezcalstoneInput,
   IEdict,
   IEtching,
   MintSchema,
+  IEdictInput,
 } from "./mezcalstone";
 import {
   getWitnessUtxo,
   toTaprootSigner,
   WalletSigner,
+  getTapInternalKey,
+  getPubKey,
 } from "@/lib/crypto/wallet";
 import {
   BoxedSuccess,
@@ -19,7 +22,12 @@ import {
   isBoxedError,
 } from "@/lib/utils/boxed";
 import { CURRENT_BTC_TICKER, NETWORK } from "@/lib/consts";
-import { esplora_getutxos, esplora_getfee } from "@/lib/apis/esplora";
+import {
+  esplora_getutxos,
+  esplora_getfee,
+  esplora_getspendableinputs,
+} from "@/lib/apis/esplora";
+import { IEsploraSpendableUtxo } from "@/lib/apis/esplora/types";
 import {
   mezcalrpc_getMezcalUtxoBalances,
   mezcalrpc_getutxos,
@@ -31,7 +39,23 @@ import { MezcalUtxoBalance, ParsedUtxoBalance } from "../apis/mezcal/types";
 import chalk from "chalk";
 import inquirer from "inquirer";
 import ora from "ora";
+/*
+export function getWitnessUtxoFromAddress(
+  utxo: { txid: string; vout: number; value: number },
+  addressProvided: string
+) {
+  const output = address.toOutputScript(addressProvided, NETWORK);
 
+  return {
+    hash: utxo.txid,
+    index: utxo.vout,
+    witnessUtxo: {
+      script: output,
+      value: utxo.value,
+    },
+  };
+}
+*/
 function isBTCTransfer(
   transfer: SingularTransfer
 ): transfer is SingularBTCTransfer {
@@ -43,12 +67,122 @@ type IFeeOpts = {
   input_length: number;
 };
 
+function scriptTypeFromOutput(script: Buffer): string {
+  const len = script.length;
+
+  // quick pattern for Taproot: OP_PUSHNUM_1 (0x51) + 0x20 + 32-byte key
+  if (len === 34 && script[0] === 0x51 && script[1] === 0x20)
+    return "witness_v1_taproot";
+
+  // quick pattern for v0 P2WPKH: 0x00 0x14 + 20-byte hash
+  if (len === 22 && script[0] === 0x00 && script[1] === 0x14)
+    return "witnesspubkeyhash";
+
+  // 0xa9 … 0x87 -> P2SH
+  if (len === 23 && script[0] === 0xa9 && script[len - 1] === 0x87)
+    return "scripthash";
+
+  // 25-byte legacy P2PKH: DUP HASH160 … EQUALVERIFY CHECKSIG
+  if (len === 25 && script[0] === 0x76 && script[1] === 0xa9)
+    return "pubkeyhash";
+
+  // fallback – try payment helpers but swallow errors
+  const safe = <T>(fn: () => T | undefined) => {
+    try {
+      return fn();
+    } catch {
+      return undefined;
+    }
+  };
+  if (safe(() => payments.p2wpkh({ output: script })))
+    return "witnesspubkeyhash";
+  if (safe(() => payments.p2pkh({ output: script }))) return "pubkeyhash";
+  if (safe(() => payments.p2sh({ output: script }))) return "scripthash";
+
+  return "unknown";
+}
+
+export function addInputDynamic(psbt: Psbt, utxo: IEsploraSpendableUtxo) {
+  const prevTx = utxo.prevTx;
+  const prevOut = prevTx.vout[utxo.vout];
+  const scriptBuf = Buffer.from(prevOut.scriptpubkey, "hex");
+  const scriptType = prevOut.scriptpubkey_type; // prefer Esplora tag
+  const classifyType = scriptTypeFromOutput(scriptBuf);
+  const type = scriptType ?? classifyType; // fallback if absent
+
+  switch (type) {
+    // ---------------- P2WPKH ----------------
+    case "v0_p2wpkh":
+    case "witnesspubkeyhash": {
+      psbt.addInput({
+        hash: utxo.txid,
+        index: utxo.vout,
+        witnessUtxo: {
+          script: scriptBuf,
+          value: prevOut.value,
+        },
+      });
+      break;
+    }
+
+    case "p2pkh":
+    case "pubkeyhash": {
+      psbt.addInput({
+        hash: utxo.txid,
+        index: utxo.vout,
+        nonWitnessUtxo: Buffer.from(prevTx.hex, "hex"),
+      });
+      break;
+    }
+
+    case "p2sh":
+    case "scripthash": {
+      const redeem = payments.p2sh({ output: scriptBuf, network: NETWORK });
+      if (
+        redeem.redeem &&
+        scriptTypeFromOutput(redeem.redeem.output!) === "witnesspubkeyhash"
+      ) {
+        psbt.addInput({
+          hash: utxo.txid,
+          index: utxo.vout,
+          witnessUtxo: {
+            script: redeem.output!,
+            value: prevOut.value,
+          },
+          redeemScript: redeem.redeem.output!,
+        });
+      } else {
+        throw new Error("Unsupported P2SH script (not a P2WPKH nested)");
+      }
+      break;
+    }
+
+    case "v1_p2tr":
+    case "witness_v1_taproot": {
+      psbt.addInput({
+        hash: utxo.txid,
+        index: utxo.vout,
+        witnessUtxo: {
+          script: scriptBuf,
+          value: prevOut.value,
+        },
+        tapInternalKey: scriptBuf.subarray(2, 34),
+      });
+      break;
+    }
+
+    default:
+      throw new Error(`Unsupported script type: ${type}`);
+  }
+}
+
 export class MezcalstoneTransaction {
   private MINIMUM_FEE = 500;
   private MINIMUM_DUST = 546;
 
   //These are used to calculate the fee and outputs that will be used in the transaction. These are not in the final transaction
   private availableUtxos: EsploraUtxo[] = [];
+  private availableSpendableUtxos: IEsploraSpendableUtxo[] = [];
   private availableMezcalUtxoBalances: ParsedUtxoBalance[] = [];
 
   //These are the utxos that will be used in the transaction
@@ -84,7 +218,9 @@ export class MezcalstoneTransaction {
         `Failed to fetch ${CURRENT_BTC_TICKER} utxos: ${esploraUtxoResponse.message}`
       );
     }
-    this.availableUtxos = esploraUtxoResponse.data;
+    this.availableUtxos = esploraUtxoResponse.data.filter(
+      (utxo) => utxo.status.confirmed
+    );
 
     const mezcalUtxoResponse = await mezcalrpc_getMezcalUtxoBalances(
       this.changeAddress
@@ -236,10 +372,22 @@ export class MezcalstoneTransaction {
     this.utxos = this.getEsploraUtxosToMeetAllRequirements();
   }
 
+  private async fetchSpendableInputs(): Promise<void> {
+    const spendableInputs = await esplora_getspendableinputs(this.utxos);
+    if (isBoxedError(spendableInputs)) {
+      throw new Error(
+        `Failed to fetch spendable inputs: ${spendableInputs.message}`
+      );
+    }
+
+    this.availableSpendableUtxos = spendableInputs.data;
+  }
+
   private async initialize(): Promise<void> {
     await this.calculateFee();
     await this.fetchResources();
     this.fetchUtxos();
+    await this.fetchSpendableInputs();
   }
 
   private getBtcOutputs(): Record<string, number> {
@@ -302,16 +450,15 @@ export class MezcalstoneTransaction {
   }
 
   private addInputs(): void {
-    for (const utxo of this.utxos) {
-      const witnessUtxo = getWitnessUtxo(utxo, this.signer);
-      this.psbt.addInput(witnessUtxo);
+    for (const utxo of this.availableSpendableUtxos) {
+      addInputDynamic(this.psbt, utxo);
     }
   }
 
   private createEdicts(
     btcOutputs: Record<string, number>,
     hasChange: boolean
-  ): IEdict[] {
+  ): IEdictInput[] {
     //Mapped by address, and then mezcalID. Everything is flattened in the end
     const mezcalEdicts: Record<string, Record<string, IEdict>> = {};
     const outputIds: Record<string, number> = {};
@@ -349,14 +496,22 @@ export class MezcalstoneTransaction {
     }
 
     let transactionEdicts = Object.values(mezcalEdicts)
-      .map((addressEdicts) => Object.values(addressEdicts))
-      .flat(2);
+      .map((addressEdicts) =>
+        Object.values(addressEdicts).map((edict) => [
+          edict.id,
+          edict.amount,
+          edict.output,
+        ])
+      )
+      .flat(1) as IEdictInput[];
 
     return transactionEdicts;
   }
 
-  private addMezcalstoneData(edicts?: IEdict[]): IMezcalstone | undefined {
-    let mezcalstone: IMezcalstone = { p: "https://mezcal.sh" };
+  private addMezcalstoneData(
+    edicts?: IEdictInput[]
+  ): IMezcalstoneInput | undefined {
+    let mezcalstone: IMezcalstoneInput = { p: "https://mezcal.sh" };
 
     if (this.options.partialMezcalstone?.etching) {
       mezcalstone.etching = this.options.partialMezcalstone.etching;
@@ -376,7 +531,9 @@ export class MezcalstoneTransaction {
     const mezcalstoneData = parsed.data;
     if (Object.keys(mezcalstoneData).length === 1) return undefined;
 
-    const json = JSON.stringify(mezcalstoneData);
+    const json = JSON.stringify(mezcalstone);
+
+    console.log(json);
 
     const data = Buffer.from(json, "utf8");
 
@@ -385,11 +542,12 @@ export class MezcalstoneTransaction {
       script: embed.output!,
       value: 0,
     });
-    return mezcalstoneData;
+    return mezcalstone;
   }
 
-  public async build(): Promise<[number, IMezcalstone | undefined]> {
+  public async build(): Promise<[number, IMezcalstoneInput | undefined]> {
     await this.initialize();
+
     this.addInputs();
     const btcOutputs = this.getBtcOutputs();
     let hasChange = this.addOutputs(btcOutputs);
@@ -527,5 +685,6 @@ export async function getMezcalstoneTransaction(
   await mezcalstoneTx.build();
   const tx = mezcalstoneTx.finalize();
   finalizeSpin.succeed("Transaction finalized.");
+  console.log(tx.toHex());
   return new BoxedSuccess(tx);
 }

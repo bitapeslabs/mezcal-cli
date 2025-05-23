@@ -61,6 +61,15 @@ export function getSigner(mnemonic: string): WalletSigner {
   return { xprv, xpub, seed, root };
 }
 
+export const getPubKey = (signer: WalletSigner): Buffer => {
+  const { root: rootKey } = signer;
+
+  const childNode = rootKey.derivePath(getPath());
+  const childNodeXOnlyPubkey = toXOnly(Buffer.from(childNode.publicKey));
+
+  return Buffer.from(childNodeXOnlyPubkey);
+};
+
 export function toTaprootSigner(signer: WalletSigner) {
   const { root: rootKey } = signer;
 
@@ -88,10 +97,12 @@ export function getWitnessUtxo(utxo: EsploraUtxo, signer: WalletSigner) {
 
   const childNodeXOnlyPubkey = toXOnly(Buffer.from(childNode.publicKey));
 
-  const { address, output, signature } = bitcoin.payments.p2tr({
+  const { address, output, signature, pubkey } = bitcoin.payments.p2tr({
     internalPubkey: Buffer.from(childNodeXOnlyPubkey),
     network: NETWORK,
   });
+
+  if (!pubkey) throw new Error("Failed to derive p2tr output script");
 
   if (!output) {
     throw new Error("Failed to derive p2tr output script");
@@ -101,12 +112,20 @@ export function getWitnessUtxo(utxo: EsploraUtxo, signer: WalletSigner) {
     hash: utxo.txid,
     index: utxo.vout,
     witnessUtxo: {
-      script: output,
+      script: pubkey,
       value: utxo.value,
     },
     tapInternalKey: Buffer.from(childNodeXOnlyPubkey),
   };
 }
+
+export const getTapInternalKey = (signer: WalletSigner) => {
+  const { root: rootKey } = signer;
+  const childNode = rootKey.derivePath(getPath());
+  const childNodeXOnlyPubkey = toXOnly(Buffer.from(childNode.publicKey));
+
+  return Buffer.from(childNodeXOnlyPubkey);
+};
 
 export function getCurrentTaprootAddress(
   signer: WalletSigner,

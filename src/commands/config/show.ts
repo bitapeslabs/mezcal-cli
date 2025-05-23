@@ -4,7 +4,7 @@ import { Command } from "@/commands/base";
 import {
   CONFIG_PATH,
   ELECTRUM_API_URL as DEFAULT_ELECTRUM_API_URL,
-  DUNES_RPC_URL as DEFAULT_DUNES_RPC_URL,
+  MEZCAL_RPC_URL as DEFAULT_MEZCAL_RPC_URL,
   NETWORK as DEFAULT_NETWORK,
 } from "@/lib/consts";
 
@@ -27,7 +27,7 @@ export default class ConfigShow extends Command {
     const config = loadConfig();
 
     const electrum = config.ELECTRUM_API_URL || DEFAULT_ELECTRUM_API_URL;
-    const mezcal = config.DUNES_RPC_URL || DEFAULT_DUNES_RPC_URL;
+    const mezcal = config.MEZCAL_RPC_URL || DEFAULT_MEZCAL_RPC_URL;
     const network = config.NETWORK || DEFAULT_NETWORK;
 
     this.log(chalk.bold("Current Mezcals CLI configuration:\n"));

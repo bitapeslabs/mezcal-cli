@@ -44,12 +44,23 @@ export const PriceTermsSchema = z.object({
   pay_to: z.string().max(130, "pay_to address may be up to 130 chars"),
 });
 
-/* ── 3. existing schemas with additions/limits ───────── */
-export const EdictSchema = z.object({
+/* ── helpers already defined: mezcalAmount, u8() ──────────────── */
+const EdictTupleSchema = z
+  .tuple([
+    z.string().regex(/^\d+:\d+$/, "id must look like “0:0”"), // id
+    mezcalAmount, // amount
+    u8(), // output
+  ])
+  .transform(([id, amount, output]) => ({ id, amount, output })); // -> object
+
+const EdictObjectSchema = z.object({
   id: z.string().regex(/^\d+:\d+$/, "id must look like “0:0”"),
   amount: mezcalAmount,
   output: u8(),
 });
+
+/* ── replace the old EdictSchema with a union that normalises ─── */
+export const EdictSchema = z.union([EdictObjectSchema, EdictTupleSchema]);
 
 export const TermsSchema = z.object({
   price: PriceTermsSchema.optional(),
@@ -112,10 +123,12 @@ export const MezcalstoneSchema = z
   .strict();
 
 export type IPriceTerms = z.infer<typeof PriceTermsSchema>;
-export type IEdict = z.infer<typeof EdictSchema>;
+export type IEdictInput = z.input<typeof EdictSchema>; // for raw inputs
+export type IEdict = z.output<typeof EdictSchema>; // for parsed result
 export type ITerms = z.infer<typeof TermsSchema>;
 export type IMint = z.infer<typeof MintSchema>;
 export type IEtching = z.infer<typeof EtchingSchema>;
 export type IMezcalstoneFull = z.infer<typeof MezcalstoneSchema>;
 
 export type IMezcalstone = Omit<IMezcalstoneFull, "p"> & { p?: string };
+export type IMezcalstoneInput = z.input<typeof MezcalstoneSchema>;

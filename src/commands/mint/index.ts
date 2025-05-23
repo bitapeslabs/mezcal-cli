@@ -10,7 +10,7 @@ import {
 } from "@/lib/apis/mezcal";
 import {
   esplora_getaddressbalance,
-  esplora_submittxthroughproviders,
+  esplora_broadcastTx,
 } from "@/lib/apis/esplora";
 import { getWallet, getDecryptedWalletFromPassword } from "../shared";
 import { isBoxedError } from "@/lib/utils/boxed";
@@ -159,7 +159,7 @@ export default class Mint extends Command {
 
     // broadcast
     const brSpin = ora("Broadcasting…").start();
-    const br = await esplora_submittxthroughproviders(txRes.data.toHex());
+    const br = await esplora_broadcastTx(txRes.data.toHex());
     brSpin.stop();
     if (isBoxedError(br)) return this.error(br.message || DEFAULT_ERROR);
 

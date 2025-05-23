@@ -1,3 +1,6 @@
+import { IEsploraTransaction } from "../apis/esplora/types";
+import { Transaction as BitcoinJsTransaction } from "bitcoinjs-lib";
+
 /**
  * Converts satoshis to BTC (1 BTC = 100,000,000 sats)
  * @param sats - A number representing satoshis
@@ -31,3 +34,47 @@ export function btcToSats(btc: number): number {
 
   return Number(sats);
 }
+
+export const getEsploraTransactionWithHex = (
+  tx: IEsploraTransaction
+): IEsploraTransaction & { hex: string } => {
+  const transaction = new BitcoinJsTransaction();
+
+  transaction.version = tx.version;
+  transaction.locktime = tx.locktime;
+
+  tx.vin.forEach((input) => {
+    if (input.is_coinbase) {
+      // Coinbase transactions dont have txid
+      transaction.addInput(
+        Buffer.alloc(32),
+        0xffffffff,
+        input.sequence,
+        Buffer.from(input.scriptsig, "hex")
+      );
+      return;
+    }
+
+    const txidBuffer = Buffer.from(input.txid, "hex").reverse();
+    const scriptSigBuffer = Buffer.from(input.scriptsig, "hex");
+
+    const vinIndex = transaction.addInput(
+      txidBuffer,
+      input.vout,
+      input.sequence,
+      Buffer.from(input.scriptsig, "hex")
+    );
+
+    transaction.ins[vinIndex].script = scriptSigBuffer;
+  });
+
+  tx.vout.forEach((output) => {
+    const scriptPubKeyBuffer = Buffer.from(output.scriptpubkey, "hex");
+    transaction.addOutput(scriptPubKeyBuffer, output.value);
+  });
+
+  return {
+    ...tx,
+    hex: transaction.toHex(),
+  };
+};

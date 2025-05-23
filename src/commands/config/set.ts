@@ -65,7 +65,7 @@ export default class ConfigSet extends Command {
           parsed.error.issues[0]?.message ?? "Invalid Mezcals RPC URL";
         this.error(`Invalid Mezcal RPC URL: ${msg}`);
       }
-      config.DUNES_RPC_URL = opts.mezcal;
+      config.MEZCAL_RPC_URL = opts.mezcal;
       updated = true;
     }
 
@@ -91,7 +91,7 @@ export default class ConfigSet extends Command {
       );
       this.log(
         `  • ${chalk.yellow("mezcal")}:    ${chalk.gray(
-          config.DUNES_RPC_URL || "not set"
+          config.MEZCAL_RPC_URL || "not set"
         )}`
       );
       this.log(
