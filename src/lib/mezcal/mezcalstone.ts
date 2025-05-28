@@ -1,5 +1,7 @@
 import { z } from "zod";
-/* ── 1. shared helpers ───────────────────────── */
+import { NETWORK } from "@/lib/consts";
+import { address } from "bitcoinjs-lib";
+
 const MAX_U128 = (1n << 128n) - 1n;
 const MAX_U32 = 0xffff_ffff;
 const MAX_U8 = 0xff;
@@ -14,6 +16,20 @@ const isValidU128 = (s: string) => {
   }
 };
 
+function isValidBtcAddress(addr: string): boolean {
+  try {
+    address.toOutputScript(addr, NETWORK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export const BtcAddressSchema = z
+  .string()
+  .trim()
+  .refine(isValidBtcAddress, { message: "Invalid Bitcoin address" });
+
 const satoshi = z.preprocess((v) => {
   if (typeof v === "string" && v.trim() !== "") {
     const n = Number(v);
@@ -25,7 +41,7 @@ const satoshi = z.preprocess((v) => {
       return n; // ✅ successful cast
     }
   }
-  return v; // ❌ leave as‑is (string)
+  return v; // ❌ leave as-is (string)
 }, z.number().int().nonnegative().max(MAX_SATOSHI_EVER_IN_CIRCULATION));
 
 const mezcalAmount = z.string().refine(
@@ -38,20 +54,28 @@ const mezcalAmount = z.string().refine(
 const u32 = () => z.number().int().nonnegative().max(MAX_U32);
 const u8 = () => z.number().int().nonnegative().max(MAX_U8);
 
-/* ── 2. new PriceTerms schema ───────────────────────── */
 export const PriceTermsSchema = z.object({
-  amount: satoshi, // Max amount of satoshi there will ever be (accepts string for legacy bigint)
-  pay_to: z.string().max(130, "pay_to address may be up to 130 chars"),
+  amount: satoshi,
+  pay_to: BtcAddressSchema,
 });
 
-/* ── helpers already defined: mezcalAmount, u8() ──────────────── */
+export const AcceptedPriceTermsSchema = z.union([
+  PriceTermsSchema,
+  z.array(PriceTermsSchema),
+]);
+
+const PriceArraySchema = z.preprocess(
+  (v) => (Array.isArray(v) ? v : v === undefined || v === null ? v : [v]),
+  z.array(PriceTermsSchema)
+);
+
 const EdictTupleSchema = z
   .tuple([
     z.string().regex(/^\d+:\d+$/, "id must look like “0:0”"), // id
     mezcalAmount, // amount
     u8(), // output
   ])
-  .transform(([id, amount, output]) => ({ id, amount, output })); // -> object
+  .transform(([id, amount, output]) => ({ id, amount, output }));
 
 const EdictObjectSchema = z.object({
   id: z.string().regex(/^\d+:\d+$/, "id must look like “0:0”"),
@@ -59,17 +83,17 @@ const EdictObjectSchema = z.object({
   output: u8(),
 });
 
-/* ── replace the old EdictSchema with a union that normalises ─── */
 export const EdictSchema = z.union([EdictObjectSchema, EdictTupleSchema]);
 
 export const TermsSchema = z.object({
-  price: PriceTermsSchema.optional(),
+  price: PriceArraySchema.optional(), // <— always array when present
   amount: mezcalAmount,
   cap: mezcalAmount.optional().nullable(),
   height: z.tuple([u32().nullable(), u32().nullable()]),
   offset: z.tuple([u32().nullable(), u32().nullable()]),
 });
 
+/* ── Mint & Etching ──────────────────────────── */
 export const MintSchema = z
   .string()
   .regex(/^\d+:\d+$/, "mint must look like 'block:tx'")
@@ -92,12 +116,18 @@ export const MintSchema = z
     return `${block}:${tx}`;
   });
 
+export const ValidMezcalNameSchema = z
+  .string()
+  .regex(/^[a-z0-9-]+$/)
+  .min(1)
+  .max(15);
+
 export const EtchingSchema = z.object({
-  divisibility: z.number().int().nonnegative().max(18), //Avoid jeet precision
+  divisibility: z.number().int().nonnegative().max(18),
   premine: mezcalAmount,
   mezcal: z
     .string()
-    .regex(/^[a-z0-9-]+$/) // only lowercase alphanumeric and hyphens
+    .regex(/^[a-z0-9-]+$/)
     .min(1)
     .max(15),
   symbol: z
@@ -110,11 +140,13 @@ export const EtchingSchema = z.object({
   turbo: z.boolean().default(true),
 });
 
-export const AMOUNT_KEYS = new Set(["amount", "cap", "premine"]);
-
 export const MezcalstoneSchema = z
   .object({
-    p: z.union([z.literal("mezcal"), z.literal("https://mezcal.sh")]),
+    p: z.union([
+      z.literal("mezcal"),
+      z.literal("https://mezcal.sh"),
+      z.literal("https://t.me/mezcalbtc"),
+    ]),
     edicts: z.array(EdictSchema).optional(),
     etching: EtchingSchema.optional(),
     mint: MintSchema.optional(),
@@ -122,13 +154,12 @@ export const MezcalstoneSchema = z
   })
   .strict();
 
-export type IPriceTerms = z.infer<typeof PriceTermsSchema>;
-export type IEdictInput = z.input<typeof EdictSchema>; // for raw inputs
-export type IEdict = z.output<typeof EdictSchema>; // for parsed result
+export type IPriceTerms = z.infer<typeof AcceptedPriceTermsSchema>;
+export type IEdict = z.infer<typeof EdictSchema>;
 export type ITerms = z.infer<typeof TermsSchema>;
 export type IMint = z.infer<typeof MintSchema>;
 export type IEtching = z.infer<typeof EtchingSchema>;
 export type IMezcalstoneFull = z.infer<typeof MezcalstoneSchema>;
-
 export type IMezcalstone = Omit<IMezcalstoneFull, "p"> & { p?: string };
 export type IMezcalstoneInput = z.input<typeof MezcalstoneSchema>;
+export type IEdictInput = z.input<typeof EdictSchema>;

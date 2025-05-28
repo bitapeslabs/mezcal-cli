@@ -10,17 +10,20 @@ fs.mkdirSync(paths.data, { recursive: true });
 export const CONFIG_PATH = path.resolve(paths.data, "config.json");
 export const WALLET_PATH = path.resolve(paths.data, "wallet.json");
 export const GIT_ISSUE_URL = "https://github.com/bitapeslabs/mezcal-cli/issues";
+export const MARA_SLIPSTREAM_URL =
+  "https://mezcal.sh/api/mezcal/transactions/submitmara";
 
 const defaults = {
-  ELECTRUM_API_URL: "https://testnet.mezcal.sh/esplora",
-  MEZCAL_RPC_URL: "https://testnet.mezcal.sh",
-  EXPLORER_URL: "https://mempool.space/testnet",
-  NETWORK: "testnet", // <- new default
+  ELECTRUM_API_URL: "https://mezcal.sh/api/esplora",
+  MEZCAL_RPC_URL: "https://mezcal.sh/api",
+  EXPLORER_URL: "https://mempool.space",
+  FEERATE: 0,
+  NETWORK: "mainnet", // <- new default
 };
 
 type ConfigKeys = keyof typeof defaults;
 
-let configOverrides: Partial<Record<ConfigKeys, string>> = {};
+let configOverrides: Partial<Record<ConfigKeys, string | number>> = {};
 if (fs.existsSync(CONFIG_PATH)) {
   try {
     configOverrides = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
@@ -34,6 +37,10 @@ export const BTC_TICKERS = {
   testnet: "tBTC",
   mainnet: "BTC",
 } as const;
+
+export const FEERATE_OVERRIDE = Number(
+  configOverrides.FEERATE ?? defaults.FEERATE
+);
 
 export const CURRENT_BTC_TICKER =
   BTC_TICKERS[defaults.NETWORK as keyof typeof BTC_TICKERS];

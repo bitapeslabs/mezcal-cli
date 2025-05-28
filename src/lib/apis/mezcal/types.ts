@@ -2,29 +2,37 @@ export enum MezcalFetchError {
   UnknownError = "UnknownError",
 }
 
-export interface Mezcal {
+export type Mezcal = {
+  id: number;
   mezcal_protocol_id: string;
+  block: number; // This field is not in the Sequelize model, but it's part of the type
   name: string;
   symbol: string;
   total_supply: string;
   decimals: number;
   premine: string;
   mints: string;
-  price_amount: string | null;
-  price_pay_to: string | null;
+  price:
+    | {
+        amount: number;
+        pay_to: string;
+      }[]
+    | null; // Postgres-only, can be null
+
   mint_cap: string | null;
   mint_start: number | null;
   mint_end: number | null;
   mint_offset_start: number | null;
   mint_offset_end: number | null;
-  total_holders: number;
   mint_amount: string | null;
-  burnt_amount: string;
+  burnt_amount: string | null;
+  etch_transaction_id: string | null; // BIGINT → string
+  deployer_address_id: string | null; // BIGINT → string
   unmintable: number;
+  total_holders: number;
   etch_transaction: string;
   deployer_address: string;
-}
-
+};
 export interface MezcalBalanceResponse {
   address: string;
   balances: {

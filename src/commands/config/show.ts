@@ -33,7 +33,12 @@ export default class ConfigShow extends Command {
     this.log(chalk.bold("Current Mezcals CLI configuration:\n"));
     this.log(`  • ${chalk.yellow("electrum")}: ${chalk.gray(electrum)}`);
     this.log(`  • ${chalk.yellow("mezcal")}:    ${chalk.gray(mezcal)}`);
-    this.log(`  • ${chalk.yellow("network")}:  ${chalk.gray(network)}\n`);
+    this.log(`  • ${chalk.yellow("network")}:  ${chalk.gray(network)}`);
+    this.log(
+      `  • ${chalk.yellow("feerate")}:  ${chalk.gray(
+        config.FEERATE || "default"
+      )}\n`
+    );
     this.log(
       chalk.gray(
         "To change settings, use: mezcal config set --electrum <url> --mezcal <url> --network <env>"

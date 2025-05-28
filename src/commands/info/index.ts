@@ -43,7 +43,8 @@ export default class MezcalInfo extends Command {
       n == null ? "—" : Number(n).toLocaleString();
     const opt = (v: string | null) => (v == null ? "—" : v);
 
-    let isFlex = d.mint_amount === "0" && d?.price_amount;
+    let isFlex = d.mint_amount === "0" && d?.price !== null;
+    let totalPrice = d?.price?.reduce((acc, p) => acc + Number(p.amount), 0);
 
     const rows: [string, string][] = [
       ["Has flex mint enabled", isFlex ? "yes" : "no"],
@@ -56,8 +57,8 @@ export default class MezcalInfo extends Command {
       ["Minted", num(d.mints)],
       ["Burnt", num(d.burnt_amount)],
       ["Unmintable", d.unmintable ? "yes" : "no"],
-      ["Price amount", opt(d.price_amount)],
-      ["Price pay‑to", opt(d.price_pay_to)],
+      ["Price amount", opt(totalPrice?.toString() ?? "—")],
+      ["Price pay‑to", opt(d.price?.map((p) => p.pay_to).join(", ") ?? "—")],
       ["Mint cap", opt(d.mint_cap)],
       [
         "Mint window",

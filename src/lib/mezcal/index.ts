@@ -8,20 +8,14 @@ import {
   MintSchema,
   IEdictInput,
 } from "./mezcalstone";
-import {
-  getWitnessUtxo,
-  toTaprootSigner,
-  WalletSigner,
-  getTapInternalKey,
-  getPubKey,
-} from "@/lib/crypto/wallet";
+import { toTaprootSigner, WalletSigner } from "@/lib/crypto/wallet";
 import {
   BoxedSuccess,
   BoxedError,
   BoxedResponse,
   isBoxedError,
 } from "@/lib/utils/boxed";
-import { CURRENT_BTC_TICKER, NETWORK } from "@/lib/consts";
+import { CURRENT_BTC_TICKER, FEERATE_OVERRIDE, NETWORK } from "@/lib/consts";
 import {
   esplora_getutxos,
   esplora_getfee,
@@ -35,7 +29,7 @@ import {
 import { EsploraUtxo } from "@/lib/apis/esplora/types";
 import { getCurrentTaprootAddress } from "@/lib/crypto/wallet";
 import { get } from "http";
-import { MezcalUtxoBalance, ParsedUtxoBalance } from "../apis/mezcal/types";
+import { ParsedUtxoBalance } from "../apis/mezcal/types";
 import chalk from "chalk";
 import inquirer from "inquirer";
 import ora from "ora";
@@ -249,8 +243,14 @@ export class MezcalstoneTransaction {
 
   private async calculateFee(): Promise<void> {
     //avoid round trip to esplora if we are just creating the dummy tx
-    const feeResp = this.feeOpts ? await esplora_getfee() : new BoxedSuccess(1);
-    const feeRate = isBoxedError(feeResp) ? 1 : feeResp.data;
+    let feeRate = FEERATE_OVERRIDE;
+
+    if (feeRate <= 0) {
+      const feeResp = this.feeOpts
+        ? await esplora_getfee()
+        : new BoxedSuccess(1);
+      feeRate = isBoxedError(feeResp) ? 1 : feeResp.data;
+    }
     //Seee suggestion @ https://github.com/bitcoinjs/bitcoinjs-lib/issues/1566
     let baseFee =
       Math.ceil(
@@ -600,7 +600,15 @@ type PartialMezcalstone = {
 export async function getMezcalstoneTransaction(
   signer: WalletSigner,
   options: MezcalstoneTransactionOptions
-): Promise<BoxedResponse<Transaction, string>> {
+): Promise<
+  BoxedResponse<
+    {
+      tx: Transaction;
+      useMaraPool: boolean;
+    },
+    string
+  >
+> {
   const buildSpin = ora("Creating transaction…").start();
 
   let partialMezcalstone = {} as PartialMezcalstone;
@@ -610,6 +618,7 @@ export async function getMezcalstoneTransaction(
     if (!parsed.success) {
       const issue = parsed.error.issues[0]?.message || "Invalid Mezcalstone";
       buildSpin.stop();
+      console.error(chalk.red(JSON.stringify(parsed.error.issues)));
       return new BoxedError("ValidationError", issue);
     }
     partialMezcalstone["etching"] = parsed.data;
@@ -632,13 +641,11 @@ export async function getMezcalstoneTransaction(
   });
   const [dummyInputLength, dummyMezcalstone] = await dummyMezcalsTx.build();
   buildSpin.stop();
-
+  const mezcalstoneBuffer = Buffer.from(
+    JSON.stringify(dummyMezcalstone),
+    "utf8"
+  );
   if (dummyMezcalstone) {
-    const mezcalstoneBuffer = Buffer.from(
-      JSON.stringify(dummyMezcalstone),
-      "utf8"
-    );
-
     if (mezcalstoneBuffer.length > 80) {
       const warning = chalk.yellow(
         `\nWARNING: Mezcalstone exceeds 80 bytes.\n` +
@@ -686,5 +693,5 @@ export async function getMezcalstoneTransaction(
   const tx = mezcalstoneTx.finalize();
   finalizeSpin.succeed("Transaction finalized.");
   console.log(tx.toHex());
-  return new BoxedSuccess(tx);
+  return new BoxedSuccess({ tx, useMaraPool: mezcalstoneBuffer.length > 80 });
 }

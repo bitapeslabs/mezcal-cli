@@ -32,6 +32,7 @@ export default class ConfigSet extends Command {
     "$ mezcal config set --electrum https://regtest.anoa.io/api",
     "$ mezcal config set --mezcal http://api.mezcal.sh",
     "$ mezcal config set --network regtest",
+    "$ mezcal config set --feerate number",
     "$ mezcal config set",
   ];
 
@@ -39,6 +40,10 @@ export default class ConfigSet extends Command {
     electrum: z.string().optional().describe("Electrum API URL"),
     mezcal: z.string().optional().describe("Mezcals RPC URL"),
     explorer: ExplorerSchema.optional().describe("Explorer URL"),
+    feerate: z
+      .number()
+      .optional()
+      .describe("Default fee rate in satoshis per byte (e.g., 1.5)"),
     network: NetworkSchema.optional().describe(
       "Network (bitcoin | testnet | regtest)"
     ),
@@ -76,6 +81,15 @@ export default class ConfigSet extends Command {
         this.error(`Invalid network: ${msg}`);
       }
       config.NETWORK = opts.network;
+      updated = true;
+    }
+
+    if (opts.feerate) {
+      const feerate = parseFloat(opts.feerate);
+      if (isNaN(feerate) || feerate <= 0) {
+        this.error("Fee rate must be a positive number");
+      }
+      config.FEERATE = feerate.toString();
       updated = true;
     }
 

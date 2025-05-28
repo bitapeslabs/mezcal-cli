@@ -20,6 +20,7 @@ import type { WalletSigner } from "@/lib/crypto/wallet";
 import { SingularTransfer } from "@/lib/mezcal";
 import { Mezcal } from "@/lib/apis/mezcal/types";
 import { parseBalance } from "@/lib/mezcal/utils";
+import { submitTxToMara } from "@/lib/apis/mara";
 // ────────────────────────────────────────────────────────────
 // Validation helpers
 // ────────────────────────────────────────────────────────────
@@ -321,21 +322,24 @@ export default class WalletTransfer extends Command {
     await this.collectTransfers();
 
     // Build tx
-    const txRes = await getMezcalstoneTransaction(signer, {
+    const mezcalTx = await getMezcalstoneTransaction(signer, {
       transfers: this.transfers,
     });
-    if (isBoxedError(txRes)) {
-      return this.error(txRes.message || DEFAULT_ERROR);
+    if (isBoxedError(mezcalTx)) {
+      return this.error(mezcalTx.message || DEFAULT_ERROR);
     }
 
     // Broadcast
     const bSpin = ora("Broadcasting...").start();
-    const br = await esplora_broadcastTx(txRes.data.toHex());
-    if (isBoxedError(br)) {
+    const response = mezcalTx.data.useMaraPool
+      ? await submitTxToMara(mezcalTx.data.tx.toHex())
+      : await esplora_broadcastTx(mezcalTx.data.tx.toHex());
+
+    if (isBoxedError(response)) {
       bSpin.fail("Broadcast error");
-      return this.error(br.message || DEFAULT_ERROR);
+      return this.error(response.message || DEFAULT_ERROR);
     }
     bSpin.succeed("Broadcasted!");
-    this.log("TX: " + chalk.gray(`${EXPLORER_URL}/tx/${br.data}`));
+    this.log("TX: " + chalk.gray(`${EXPLORER_URL}/tx/${response.data}`));
   }
 }

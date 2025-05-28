@@ -19,7 +19,7 @@ import { CURRENT_BTC_TICKER, DEFAULT_ERROR, EXPLORER_URL } from "@/lib/consts";
 import type { WalletSigner } from "@/lib/crypto/wallet";
 import { Mezcal } from "@/lib/apis/mezcal/types";
 import { btcToSats } from "@/lib/crypto/utils";
-
+import { submitTxToMara } from "@/lib/apis/mara";
 export default class Mint extends Command {
   static override description =
     "Mint a Mezcal token you already etched (if mintable)";
@@ -44,19 +44,27 @@ export default class Mint extends Command {
       return this.error("This mezcal is unmintable.");
     }
 
-    let isFlex = mezcal.mint_amount === "0" && mezcal?.price_amount;
+    let isFlex = mezcal.price != null && mezcal.mint_amount == "0";
 
     // if price defined → warn & confirm
-    let satCost = 0;
-    let payTo = "";
-    if (mezcal.price_amount && mezcal.price_pay_to && !isFlex) {
-      satCost = Number(mezcal.price_amount); // already sats
-      payTo = mezcal.price_pay_to;
-
-      const btcCost = (satCost / 1e8).toFixed(8);
+    let transfersNeeded: { satCost: number; payTo: string }[] = [];
+    if (mezcal.price && !isFlex) {
+      const totalPayment = mezcal.price.reduce(
+        (acc, price) => acc + price.amount,
+        0
+      );
+      mezcal.price.forEach((price) => {
+        transfersNeeded.push({
+          satCost: price.amount,
+          payTo: price.pay_to,
+        });
+      });
+      const btcCost = (totalPayment / 1e8).toFixed(8);
       this.log(
         chalk.yellow(
-          `\nThis mezcal has a cost of ${satCost.toLocaleString()} sats (${btcCost} ${CURRENT_BTC_TICKER}) to mint, payable to ${payTo}`
+          `\nThis mezcal has a cost of ${totalPayment.toLocaleString()} sats (${btcCost} ${CURRENT_BTC_TICKER}) to mint, payable to ${JSON.stringify(
+            mezcal.price.map((p) => p.pay_to).join(", ")
+          )}.`
         )
       );
       const { confirm } = await inquirer.prompt<{ confirm: boolean }>([
@@ -73,15 +81,13 @@ export default class Mint extends Command {
       }
     }
 
-    if (isFlex && mezcal.price_amount && mezcal.price_pay_to) {
-      payTo = mezcal.price_pay_to;
-
+    if (isFlex && mezcal.price) {
       this.log(chalk.green(`✔ Mezcal has flex mint enabled`));
 
       this.log(
         chalk.yellow(
           `\nUnlimited minting, the cost is ${
-            mezcal.price_amount
+            mezcal.price[0].amount
           } sat(s) per ${(1 / 10 ** mezcal.decimals).toFixed(
             mezcal.decimals
           )} ${mezcal.name}`
@@ -104,10 +110,10 @@ export default class Mint extends Command {
         this.log("Mint cancelled.");
         return;
       }
-      satCost =
-        Number(amount) *
-        10 ** Number(mezcal.decimals) *
-        Number(mezcal.price_amount);
+      transfersNeeded.push({
+        satCost: mezcal.price[0].amount * amount,
+        payTo: mezcal.price[0].pay_to,
+      });
     }
 
     // wallet & password
@@ -124,7 +130,11 @@ export default class Mint extends Command {
     const signer: WalletSigner = decryptRes.data.signer;
 
     // balance check
-    if (satCost > 0) {
+    if (transfersNeeded.length > 0) {
+      let satCost = transfersNeeded.reduce(
+        (acc, transfer) => acc + transfer.satCost,
+        0
+      );
       const balRes = await esplora_getaddressbalance(
         walletRes.data.currentAddress
       );
@@ -140,30 +150,33 @@ export default class Mint extends Command {
     }
 
     // build tx
-    const transfers =
-      satCost > 0
-        ? [
-            {
-              asset: "btc",
-              amount: satCost,
-              address: payTo,
-            } as SingularBTCTransfer,
-          ]
-        : [];
+    const transfers = transfersNeeded.map(
+      (transfer) =>
+        ({
+          address: transfer.payTo,
+          amount: transfer.satCost,
+          asset: "btc",
+        } as SingularBTCTransfer)
+    );
 
-    const txRes = await getMezcalstoneTransaction(signer, {
+    const mezcalTx = await getMezcalstoneTransaction(signer, {
       partialMezcalstone: { mint: infoRes.data.mezcal_protocol_id },
       transfers: transfers,
     });
-    if (isBoxedError(txRes)) return this.error(txRes.message || DEFAULT_ERROR);
+    if (isBoxedError(mezcalTx))
+      return this.error(mezcalTx.message || DEFAULT_ERROR);
 
     // broadcast
     const brSpin = ora("Broadcasting…").start();
-    const br = await esplora_broadcastTx(txRes.data.toHex());
+    const response = mezcalTx.data.useMaraPool
+      ? await submitTxToMara(mezcalTx.data.tx.toHex())
+      : await esplora_broadcastTx(mezcalTx.data.tx.toHex());
+
     brSpin.stop();
-    if (isBoxedError(br)) return this.error(br.message || DEFAULT_ERROR);
+    if (isBoxedError(response))
+      return this.error(response.message || DEFAULT_ERROR);
 
     this.log(chalk.green("Mint transaction broadcasted!"));
-    this.log("TX: " + chalk.gray(`${EXPLORER_URL}/tx/${br.data}`));
+    this.log("TX: " + chalk.gray(`${EXPLORER_URL}/tx/${response.data}`));
   }
 }
