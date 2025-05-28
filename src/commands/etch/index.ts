@@ -7,7 +7,7 @@ import { bip32 } from "@/lib/crypto/wallet";
 import { BIP32Interface } from "bip32";
 import * as bip39 from "bip39";
 import { z } from "zod";
-import { EXPLORER_URL } from "@/lib/consts";
+import { EXPLORER_URL, MARA_ENABLED } from "@/lib/consts";
 import { Command } from "@/commands/base";
 import {
   decryptWalletWithPassword,
@@ -320,9 +320,10 @@ export default class Etch extends Command {
     }
 
     const txSpinner = ora("Broadcasting transaction...").start();
-    const response = mezcalTx.data.useMaraPool
-      ? await submitTxToMara(mezcalTx.data.tx.toHex())
-      : await esplora_broadcastTx(mezcalTx.data.tx.toHex());
+    const response =
+      mezcalTx.data.useMaraPool && MARA_ENABLED
+        ? await submitTxToMara(mezcalTx.data.tx.toHex())
+        : await esplora_broadcastTx(mezcalTx.data.tx.toHex());
 
     if (isBoxedError(response)) {
       txSpinner.fail("Failed to broadcast transaction.");

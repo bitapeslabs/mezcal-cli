@@ -15,7 +15,12 @@ import {
 import { getWallet, getDecryptedWalletFromPassword } from "../shared";
 import { isBoxedError } from "@/lib/utils/boxed";
 import { getMezcalstoneTransaction, SingularBTCTransfer } from "@/lib/mezcal";
-import { CURRENT_BTC_TICKER, DEFAULT_ERROR, EXPLORER_URL } from "@/lib/consts";
+import {
+  CURRENT_BTC_TICKER,
+  DEFAULT_ERROR,
+  EXPLORER_URL,
+  MARA_ENABLED,
+} from "@/lib/consts";
 import type { WalletSigner } from "@/lib/crypto/wallet";
 import { Mezcal } from "@/lib/apis/mezcal/types";
 import { btcToSats } from "@/lib/crypto/utils";
@@ -168,9 +173,10 @@ export default class Mint extends Command {
 
     // broadcast
     const brSpin = ora("Broadcasting…").start();
-    const response = mezcalTx.data.useMaraPool
-      ? await submitTxToMara(mezcalTx.data.tx.toHex())
-      : await esplora_broadcastTx(mezcalTx.data.tx.toHex());
+    const response =
+      mezcalTx.data.useMaraPool && MARA_ENABLED
+        ? await submitTxToMara(mezcalTx.data.tx.toHex())
+        : await esplora_broadcastTx(mezcalTx.data.tx.toHex());
 
     brSpin.stop();
     if (isBoxedError(response))

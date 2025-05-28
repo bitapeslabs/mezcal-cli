@@ -13,10 +13,12 @@ export const GIT_ISSUE_URL = "https://github.com/bitapeslabs/mezcal-cli/issues";
 export const MARA_SLIPSTREAM_URL =
   "https://mezcal.sh/api/mezcal/transactions/submitmara";
 
+export const MARA_ENABLED = false;
+
 const defaults = {
-  ELECTRUM_API_URL: "https://mezcal.sh/api/esplora",
-  MEZCAL_RPC_URL: "https://mezcal.sh/api",
-  EXPLORER_URL: "https://mempool.space",
+  ELECTRUM_API_URL: "https://testnet.mezcal.sh/api/esplora",
+  MEZCAL_RPC_URL: "https://testnet.mezcal.sh/api",
+  EXPLORER_URL: "https://mempool.space/testnet",
   FEERATE: 0,
   NETWORK: "mainnet", // <- new default
 };

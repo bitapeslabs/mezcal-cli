@@ -2,7 +2,7 @@ import chalk from "chalk";
 import ora from "ora";
 import inquirer from "inquirer";
 import { z } from "zod";
-import { EXPLORER_URL } from "@/lib/consts";
+import { EXPLORER_URL, MARA_ENABLED } from "@/lib/consts";
 import { Command } from "@/commands/base";
 import {
   esplora_getaddressbalance,
@@ -331,9 +331,10 @@ export default class WalletTransfer extends Command {
 
     // Broadcast
     const bSpin = ora("Broadcasting...").start();
-    const response = mezcalTx.data.useMaraPool
-      ? await submitTxToMara(mezcalTx.data.tx.toHex())
-      : await esplora_broadcastTx(mezcalTx.data.tx.toHex());
+    const response =
+      mezcalTx.data.useMaraPool && MARA_ENABLED
+        ? await submitTxToMara(mezcalTx.data.tx.toHex())
+        : await esplora_broadcastTx(mezcalTx.data.tx.toHex());
 
     if (isBoxedError(response)) {
       bSpin.fail("Broadcast error");
