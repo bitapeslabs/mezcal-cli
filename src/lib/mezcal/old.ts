@@ -1,56 +1,39 @@
+import { Psbt, payments, Transaction, script } from "bitcoinjs-lib";
 import {
-  Psbt,
-  type Transaction,
-  address,
-  networks,
-  payments,
-} from "bitcoinjs-lib";
-import {
-  EtchingSchema,
-  type IEdict,
-  type IEdictInput,
-  type IEtching,
-  type IMezcalstoneInput,
   MezcalstoneSchema,
+  EtchingSchema,
+  IMezcalstoneInput,
+  IEdict,
+  IEtching,
   MintSchema,
+  IEdictInput,
 } from "./mezcalstone";
-
+import { toTaprootSigner, WalletSigner } from "@/lib/crypto/wallet";
 import {
-  esplora_getfee,
-  esplora_getspendableinputs,
-  esplora_getutxos,
-} from "@/lib/apis/esplora";
-import type {
-  EsploraUtxo,
-  IEsploraSpendableUtxo,
-} from "@/lib/apis/esplora/types";
-import { mezcalrpc_getMezcalUtxoBalances } from "@/lib/apis/mezcal";
-import type {
-  MezcalUtxoBalance,
-  ParsedUtxoBalance,
-} from "@/lib/apis/mezcal/types";
-import {
-  BoxedError,
-  type BoxedResponse,
   BoxedSuccess,
+  BoxedError,
+  BoxedResponse,
   isBoxedError,
 } from "@/lib/utils/boxed";
-import { CURRENT_BTC_TICKER as BITCOIN_TICKER, NETWORK } from "@/lib/consts";
+import { CURRENT_BTC_TICKER, FEERATE_OVERRIDE, NETWORK } from "@/lib/consts";
+import {
+  esplora_getutxos,
+  esplora_getfee,
+  esplora_getspendableinputs,
+} from "@/lib/apis/esplora";
+import { IEsploraSpendableUtxo } from "@/lib/apis/esplora/types";
+import {
+  mezcalrpc_getMezcalUtxoBalances,
+  mezcalrpc_getutxos,
+} from "@/lib/apis/mezcal";
+import { EsploraUtxo } from "@/lib/apis/esplora/types";
+import { getCurrentTaprootAddress } from "@/lib/crypto/wallet";
+import { get } from "http";
+import { ParsedUtxoBalance } from "../apis/mezcal/types";
 import chalk from "chalk";
-import { getCurrentTaprootAddress } from "../crypto/wallet";
-import { WalletSigner, toTaprootSigner } from "../crypto/wallet";
-
-function isBTCTransfer(
-  transfer: SingularTransfer
-): transfer is SingularBTCTransfer {
-  return transfer.asset === "btc";
-}
-
-type IFeeOpts = {
-  vsize: number;
-  input_length: number;
-};
-
+import inquirer from "inquirer";
+import ora from "ora";
+/*
 export function getWitnessUtxoFromAddress(
   utxo: { txid: string; vout: number; value: number },
   addressProvided: string
@@ -66,40 +49,17 @@ export function getWitnessUtxoFromAddress(
     },
   };
 }
-
-const DUMMY_SIG_73 = Buffer.alloc(73, 0);
-const DUMMY_PUB_33 = Buffer.alloc(33, 0);
-
-function extractWithDummySigs(psbt: Psbt): Transaction {
-  const clone = psbt.clone();
-
-  clone.data.inputs.forEach((input, idx) => {
-    if (input.finalScriptSig || input.finalScriptWitness) return;
-
-    if (input.witnessUtxo) {
-      // segwit (P2WPKH worst-case): [sig(73) pub(33)]
-      const witness = Buffer.concat([
-        Buffer.from("02", "hex"), // 2 stack items
-        Buffer.from("49", "hex"), // push-73
-        DUMMY_SIG_73,
-        Buffer.from("21", "hex"), // push-33
-        DUMMY_PUB_33,
-      ]);
-      clone.updateInput(idx, { finalScriptWitness: witness });
-    } else {
-      // legacy P2PKH: scriptSig with sig+pub
-      const script = Buffer.concat([
-        Buffer.from("48", "hex"), // push-72/73 (use 73)
-        DUMMY_SIG_73,
-        Buffer.from("21", "hex"), // push-33
-        DUMMY_PUB_33,
-      ]);
-      clone.updateInput(idx, { finalScriptSig: script });
-    }
-  });
-
-  return clone.extractTransaction();
+*/
+function isBTCTransfer(
+  transfer: SingularTransfer
+): transfer is SingularBTCTransfer {
+  return transfer.asset === "btc";
 }
+
+type IFeeOpts = {
+  vsize: number;
+  input_length: number;
+};
 
 function scriptTypeFromOutput(script: Buffer): string {
   const len = script.length;
@@ -212,10 +172,11 @@ export function addInputDynamic(psbt: Psbt, utxo: IEsploraSpendableUtxo) {
 
 export class MezcalstoneTransaction {
   private MINIMUM_FEE = 500;
-  private MINIMUM_DUST = 1000;
+  private MINIMUM_DUST = 3000;
 
   //These are used to calculate the fee and outputs that will be used in the transaction. These are not in the final transaction
   private availableUtxos: EsploraUtxo[] = [];
+  private availableSpendableUtxos: IEsploraSpendableUtxo[] = [];
   private availableMezcalUtxoBalances: ParsedUtxoBalance[] = [];
 
   //These are the utxos that will be used in the transaction
@@ -225,16 +186,14 @@ export class MezcalstoneTransaction {
   private psbt: Psbt;
 
   //On the second run, the fee will be calculated based on the vsize of the first transaction
-  private fee = 0;
+  private fee: number = 0;
 
-  private feeRate = 0;
   private readonly network = NETWORK;
   private changeAddress: string;
-  private cumulativeSpendRequirementBtc = 0;
-  private availableSpendableUtxos: IEsploraSpendableUtxo[] = [];
+  private cumulativeSpendRequirementBtc: number = 0;
   private cumulativeSpendRequirementMezcals: Record<string, bigint> = {};
+
   private feeOpts: IFeeOpts | undefined;
-  private ignoreMezcalUtxoCheck: boolean;
 
   constructor(
     private readonly signer: WalletSigner,
@@ -242,17 +201,20 @@ export class MezcalstoneTransaction {
   ) {
     this.psbt = new Psbt({ network: this.network });
     this.changeAddress = getCurrentTaprootAddress(this.signer);
-    this.ignoreMezcalUtxoCheck = options.ignoreMezcalUtxoCheck ?? false;
+
     this.feeOpts = options.feeOpts;
   }
+
   private async fetchResources(): Promise<void> {
     const esploraUtxoResponse = await esplora_getutxos(this.changeAddress);
     if (isBoxedError(esploraUtxoResponse)) {
       throw new Error(
-        `Failed to fetch ${BITCOIN_TICKER} utxos: ${esploraUtxoResponse.message}`
+        `Failed to fetch ${CURRENT_BTC_TICKER} utxos: ${esploraUtxoResponse.message}`
       );
     }
-    this.availableUtxos = esploraUtxoResponse.data;
+    this.availableUtxos = esploraUtxoResponse.data.filter(
+      (utxo) => utxo.status.confirmed
+    );
 
     const mezcalUtxoResponse = await mezcalrpc_getMezcalUtxoBalances(
       this.changeAddress
@@ -280,15 +242,17 @@ export class MezcalstoneTransaction {
   }
 
   private async calculateFee(): Promise<void> {
-    let feeRate = this.feeRate;
-    if (!feeRate) {
+    //avoid round trip to esplora if we are just creating the dummy tx
+    let feeRate = FEERATE_OVERRIDE;
+
+    if (feeRate <= 0) {
       const feeResp = this.feeOpts
         ? await esplora_getfee()
         : new BoxedSuccess(1);
       feeRate = isBoxedError(feeResp) ? 1 : feeResp.data;
     }
     //Seee suggestion @ https://github.com/bitcoinjs/bitcoinjs-lib/issues/1566
-    const baseFee =
+    let baseFee =
       Math.ceil(
         (this.feeOpts?.vsize ?? 0) + (this.feeOpts?.input_length ?? 0) * 2
       ) * feeRate;
@@ -298,7 +262,7 @@ export class MezcalstoneTransaction {
 
   private calcCumulativeSpendRequirements() {
     //Reinitialize the cumulative spend requirements incase of multiple calls
-    this.cumulativeSpendRequirementBtc = this.fee + this.MINIMUM_DUST;
+    this.cumulativeSpendRequirementBtc = 0;
 
     this.cumulativeSpendRequirementMezcals = this.options.transfers.reduce(
       (acc, transfer) => {
@@ -315,12 +279,17 @@ export class MezcalstoneTransaction {
       {} as Record<string, bigint>
     );
 
+    if (this.cumulativeSpendRequirementBtc < this.fee + this.MINIMUM_DUST) {
+      //Ensures we fetch atleast one UTXO to cover the fee and dust
+      this.cumulativeSpendRequirementBtc = this.fee + this.MINIMUM_DUST;
+    }
+
     return;
   }
 
   //This function gets the txids of all the utxos that are needed to meet the mezcal requirement
-  private getMezcalUtxosToMeetMezcalRequirement(): Set<MezcalUtxoBalance> {
-    const mezcalUtxos: Set<MezcalUtxoBalance> = new Set();
+  private getMezcalUtxosToMeetMezcalRequirement(): Set<string> {
+    const mezcalUtxos: Set<string> = new Set();
 
     for (const mezcal of Object.keys(this.cumulativeSpendRequirementMezcals)) {
       /*
@@ -341,7 +310,7 @@ export class MezcalstoneTransaction {
         }
 
         accumulated += utxo.balance;
-        mezcalUtxos.add(utxo);
+        mezcalUtxos.add(`${utxo.utxo.transaction}:${utxo.utxo.vout_index}`);
       }
 
       if (accumulated < this.cumulativeSpendRequirementMezcals[mezcal]) {
@@ -354,11 +323,12 @@ export class MezcalstoneTransaction {
   }
 
   private getEsploraUtxosToMeetAllRequirements(): EsploraUtxo[] {
-    const mezcalUtxos = !this.ignoreMezcalUtxoCheck
-      ? this.getMezcalUtxosToMeetMezcalRequirement()
-      : new Set<MezcalUtxoBalance>();
+    const utxosToMeetRequirements: EsploraUtxo[] = [];
+    const mezcalUtxos = this.getMezcalUtxosToMeetMezcalRequirement();
 
-    let utxosToMeetRequirementsSet = new Map<string, EsploraUtxo>();
+    const esploraUtxoMap = new Map(
+      this.availableUtxos.map((utxo) => [`${utxo.txid}:${utxo.vout}`, utxo])
+    );
 
     const sortedUtxos = [...this.availableUtxos].sort(
       (a, b) => b.value - a.value
@@ -367,41 +337,31 @@ export class MezcalstoneTransaction {
     //Add all mezcal utxos to the utxosToMeetRequirements
     let accumulated = 0;
     for (const mezcalUtxo of mezcalUtxos) {
-      if (mezcalUtxo.utxo.transaction === null) {
-        throw new Error(
-          `Mezcal UTXO ${mezcalUtxo.mezcal.mezcal_protocol_id} does not have a transaction.`
-        );
+      const utxo = esploraUtxoMap.get(mezcalUtxo);
+      if (utxo) {
+        accumulated += utxo.value;
+        utxosToMeetRequirements.push(utxo);
+      } else {
+        throw new Error(`UTXO ${mezcalUtxo} not found in esplora UTXOs.`);
       }
-
-      accumulated += Number(mezcalUtxo.utxo.value_sats);
-      utxosToMeetRequirementsSet.set(
-        `${mezcalUtxo.utxo.transaction}:${mezcalUtxo.utxo.vout_index}`,
-        {
-          txid: mezcalUtxo.utxo.transaction,
-          vout: mezcalUtxo.utxo.vout_index,
-          value: Number(mezcalUtxo.utxo.value_sats),
-          status: { confirmed: true },
-        } as EsploraUtxo
-      );
     }
+
     for (const utxo of sortedUtxos) {
       if (accumulated >= this.cumulativeSpendRequirementBtc) {
         break;
       }
-
-      if (utxosToMeetRequirementsSet.has(`${utxo.txid}:${utxo.vout}`)) {
+      if (mezcalUtxos.has(`${utxo.txid}:${utxo.vout}`)) {
         continue;
       }
-
-      utxosToMeetRequirementsSet.set(`${utxo.txid}:${utxo.vout}`, utxo);
       accumulated += utxo.value;
+      utxosToMeetRequirements.push(utxo);
     }
     if (accumulated < this.cumulativeSpendRequirementBtc) {
       throw new Error(
-        `Insufficient ${BITCOIN_TICKER} UTXOs to meet the requirement for ${BITCOIN_TICKER}.`
+        `Insufficient ${CURRENT_BTC_TICKER} UTXOs to meet the requirement for ${CURRENT_BTC_TICKER}.`
       );
     }
-    return Array.from(utxosToMeetRequirementsSet.values());
+    return utxosToMeetRequirements;
   }
 
   private fetchUtxos(): void {
@@ -460,31 +420,23 @@ export class MezcalstoneTransaction {
   private addOutputs(btcOutputs: Record<string, number>): boolean {
     let hasChange = false;
 
-    const totalOutputValue = Object.values(btcOutputs).reduce(
+    let totalOutputValue = Object.values(btcOutputs).reduce(
       (acc, amount) => acc + amount,
       0
     );
 
-    const totalInputValue = this.utxos.reduce(
-      (acc, utxo) => acc + utxo.value,
-      0
-    );
+    let totalInputValue = this.utxos.reduce((acc, utxo) => acc + utxo.value, 0);
 
     const changeValue = Math.round(
       totalInputValue - totalOutputValue - this.fee
     );
 
     //Change goes first, so it receives the mezcals not in the edicts
-
-    try {
-      hasChange = true;
-      this.psbt.addOutput({
-        address: this.changeAddress,
-        value: changeValue,
-      });
-    } catch (e) {
-      throw new Error("Insufficient funds for change output. ");
-    }
+    hasChange = true;
+    this.psbt.addOutput({
+      address: this.changeAddress,
+      value: changeValue,
+    });
 
     for (const [address, amount] of Object.entries(btcOutputs)) {
       this.psbt.addOutput({
@@ -541,14 +493,15 @@ export class MezcalstoneTransaction {
       }
     }
 
-    const transactionEdicts = Object.values(mezcalEdicts).flatMap(
-      (addressEdicts) =>
+    let transactionEdicts = Object.values(mezcalEdicts)
+      .map((addressEdicts) =>
         Object.values(addressEdicts).map((edict) => [
           edict.id,
           edict.amount,
           edict.output,
         ])
-    ) as IEdictInput[];
+      )
+      .flat(1) as IEdictInput[];
 
     return transactionEdicts;
   }
@@ -556,7 +509,7 @@ export class MezcalstoneTransaction {
   private addMezcalstoneData(
     edicts?: IEdictInput[]
   ): IMezcalstoneInput | undefined {
-    const mezcalstone: IMezcalstoneInput = { p: "https://mezcal.sh" };
+    let mezcalstone: IMezcalstoneInput = { p: "https://mezcal.sh" };
 
     if (this.options.partialMezcalstone?.etching) {
       mezcalstone.etching = this.options.partialMezcalstone.etching;
@@ -578,6 +531,8 @@ export class MezcalstoneTransaction {
 
     const json = JSON.stringify(mezcalstone);
 
+    console.log(json);
+
     const data = Buffer.from(json, "utf8");
 
     const embed = payments.embed({ data: [data] });
@@ -587,14 +542,16 @@ export class MezcalstoneTransaction {
     });
     return mezcalstone;
   }
+
   public async build(): Promise<[number, IMezcalstoneInput | undefined]> {
     await this.initialize();
+
     this.addInputs();
     const btcOutputs = this.getBtcOutputs();
-    const hasChange = this.addOutputs(btcOutputs);
+    let hasChange = this.addOutputs(btcOutputs);
 
     const edicts = this.createEdicts(btcOutputs, hasChange);
-    const mezcalstone = this.addMezcalstoneData(edicts);
+    let mezcalstone = this.addMezcalstoneData(edicts);
 
     //If we have a mezcalstone, we need to add a second output for the opreturn. Otherwise just one for the change
     return [this.utxos.length + (mezcalstone ? 2 : 1), mezcalstone];
@@ -626,13 +583,11 @@ export type SingularMezcalTransfer = {
 
 export type SingularTransfer = SingularBTCTransfer | SingularMezcalTransfer;
 
-export type MezcalstoneTransactionOptions = {
+type MezcalstoneTransactionOptions = {
   //If etching or mint are included, a new output will be created to collect the mezcals
   partialMezcalstone?: PartialMezcalstone;
   transfers: SingularTransfer[];
   feeOpts?: IFeeOpts;
-  feeRate?: number;
-  ignoreMezcalUtxoCheck?: boolean; // If true, it will not check if the mezcal UTXOs are sufficient
 };
 
 type PartialMezcalstone = {
@@ -640,96 +595,6 @@ type PartialMezcalstone = {
   mint?: string;
 };
 
-type IMezcalstoneTransactionDryRunResponse = {
-  dummyTx: Transaction;
-  dummyInputLength: number;
-  partialMezcalstone: PartialMezcalstone | undefined;
-  useMaraPool: boolean;
-  feeOpts: IFeeOpts;
-};
-
-export async function getDummyMezcalstoneTransaction(
-  signer: WalletSigner,
-  options: MezcalstoneTransactionOptions
-): Promise<BoxedResponse<IMezcalstoneTransactionDryRunResponse, string>> {
-  try {
-    const partialMezcalstone = {} as PartialMezcalstone;
-    let useMaraPool = false;
-    if (options.partialMezcalstone?.etching) {
-      const parsed = EtchingSchema.safeParse(
-        options.partialMezcalstone?.etching
-      );
-      if (!parsed.success) {
-        const issue = parsed.error.issues[0]?.message || "Invalid Mezcalstone";
-        return new BoxedError("ValidationError", issue);
-      }
-      partialMezcalstone["etching"] = parsed.data;
-    }
-
-    if (options.partialMezcalstone?.mint) {
-      const parsed = MintSchema.safeParse(options.partialMezcalstone?.mint);
-      if (!parsed.success) {
-        const issue = parsed.error.issues[0]?.message || "Invalid Mezcalstone";
-
-        return new BoxedError("ValidationError", issue);
-      }
-      partialMezcalstone["mint"] = parsed.data;
-    }
-
-    const dummyMezcalsTx = new MezcalstoneTransaction(signer, {
-      ...options,
-      partialMezcalstone,
-    });
-    const [dummyInputLength, dummyMezcalstone] = await dummyMezcalsTx.build();
-
-    if (dummyMezcalstone) {
-      const mezcalstoneBuffer = Buffer.from(
-        JSON.stringify(dummyMezcalstone),
-        "utf8"
-      );
-
-      if (mezcalstoneBuffer.length > 80) {
-        useMaraPool = true;
-        const warning = chalk.yellow(
-          `\nWARNING: Mezcalstone exceeds 80 bytes.\n` +
-            `Only MARA pool currently supports OP_RETURNs over 80 bytes.\n` +
-            `This transaction may take hours or even a day to confirm.\n` +
-            `Proposal to increase the limit: https://github.com/bitcoin/bitcoin/pull/32359\n`
-        );
-        console.log(warning);
-      }
-    }
-    const dummyTx = await dummyMezcalsTx.finalize();
-
-    const feeOpts = {
-      vsize: dummyTx.virtualSize(),
-      input_length: dummyInputLength,
-    };
-
-    console.log(
-      chalk.green(
-        `\n\nCreating transaction with size -> ${feeOpts.vsize} bytes`
-      )
-    );
-
-    return new BoxedSuccess({
-      dummyTx,
-      dummyInputLength,
-      partialMezcalstone,
-      useMaraPool,
-      feeOpts,
-    });
-  } catch (e) {
-    console.log("Error creating dummy transaction", e);
-    return new BoxedError(
-      "TransactionError",
-      "Failed to create dummy transaction: " +
-        (e instanceof Error ? e.message : "Unknown error")
-    );
-  }
-}
-
-//[transaction, useMaraPool] = getMezcalstoneTransaction(address, options)
 export async function getMezcalstoneTransaction(
   signer: WalletSigner,
   options: MezcalstoneTransactionOptions
@@ -742,13 +607,77 @@ export async function getMezcalstoneTransaction(
     string
   >
 > {
-  const response = await getDummyMezcalstoneTransaction(signer, options);
-  if (isBoxedError(response)) {
-    return response;
+  const buildSpin = ora("Creating transaction…").start();
+
+  let partialMezcalstone = {} as PartialMezcalstone;
+
+  if (options.partialMezcalstone?.etching) {
+    const parsed = EtchingSchema.safeParse(options.partialMezcalstone?.etching);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]?.message || "Invalid Mezcalstone";
+      buildSpin.stop();
+      console.error(chalk.red(JSON.stringify(parsed.error.issues)));
+      return new BoxedError("ValidationError", issue);
+    }
+    partialMezcalstone["etching"] = parsed.data;
   }
 
-  const { dummyTx, dummyInputLength, partialMezcalstone, useMaraPool } =
-    response.data;
+  if (options.partialMezcalstone?.mint) {
+    const parsed = MintSchema.safeParse(options.partialMezcalstone?.mint);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]?.message || "Invalid Mezcalstone";
+      buildSpin.stop();
+
+      return new BoxedError("ValidationError", issue);
+    }
+    partialMezcalstone["mint"] = parsed.data;
+  }
+
+  const dummyMezcalsTx = new MezcalstoneTransaction(signer, {
+    ...options,
+    partialMezcalstone,
+  });
+  const [dummyInputLength, dummyMezcalstone] = await dummyMezcalsTx.build();
+  buildSpin.stop();
+  const mezcalstoneBuffer = Buffer.from(
+    JSON.stringify(dummyMezcalstone ?? {}),
+    "utf8"
+  );
+  if (dummyMezcalstone) {
+    if (mezcalstoneBuffer.length > 80) {
+      const warning = chalk.yellow(
+        `\nWARNING: Mezcalstone exceeds 80 bytes.\n` +
+          `Only MARA pool currently supports OP_RETURNs over 80 bytes.\n` +
+          `This transaction may take hours or even a day to confirm.\n` +
+          `Proposal to increase the limit: https://github.com/bitcoin/bitcoin/pull/32359\n`
+      );
+      console.log(warning);
+
+      const { proceed } = await inquirer.prompt<{ proceed: boolean }>([
+        {
+          type: "confirm",
+          name: "proceed",
+          message: "Continue anyway?",
+          default: false,
+        },
+      ]);
+
+      if (!proceed) {
+        throw new Error("Transaction cancelled by user.");
+      }
+    }
+  }
+  let dummyTx = dummyMezcalsTx.finalize();
+
+  let feeOpts = {
+    vsize: dummyTx.virtualSize(),
+  };
+
+  console.log(
+    chalk.green(`\n\nCreating transaction with size -> ${feeOpts.vsize} bytes`)
+  );
+
+  const finalizeSpin = ora("Finalizing transaction…").start();
 
   const mezcalstoneTx = new MezcalstoneTransaction(signer, {
     ...options,
@@ -759,6 +688,8 @@ export async function getMezcalstoneTransaction(
     },
   });
   await mezcalstoneTx.build();
-  const tx = await mezcalstoneTx.finalize();
-  return new BoxedSuccess({ tx, useMaraPool });
+  const tx = mezcalstoneTx.finalize();
+  finalizeSpin.succeed("Transaction finalized.");
+  console.log(tx.toHex());
+  return new BoxedSuccess({ tx, useMaraPool: mezcalstoneBuffer.length > 80 });
 }

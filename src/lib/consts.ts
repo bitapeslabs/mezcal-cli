@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { networks } from "bitcoinjs-lib";
 import envPaths from "env-paths";
+import { bitcoin } from "bitcoinjs-lib/src/networks";
 const paths = envPaths("mezcal");
 
 // Use the current working directory to resolve config/wallet paths
@@ -13,14 +14,14 @@ export const GIT_ISSUE_URL = "https://github.com/bitapeslabs/mezcal-cli/issues";
 export const MARA_SLIPSTREAM_URL =
   "https://mezcal.sh/api/mezcal/transactions/submitmara";
 
-export const MARA_ENABLED = false;
+export const MARA_ENABLED = true;
 
 const defaults = {
-  ELECTRUM_API_URL: "https://testnet.mezcal.sh/api/esplora",
-  MEZCAL_RPC_URL: "https://testnet.mezcal.sh/api",
-  EXPLORER_URL: "https://mempool.space/testnet",
+  ELECTRUM_API_URL: "https://mezcal.sh/api/esplora",
+  MEZCAL_RPC_URL: "https://mezcal.sh/api",
+  EXPLORER_URL: "https://mempool.space",
   FEERATE: 0,
-  NETWORK: "mainnet", // <- new default
+  NETWORK: "bitcoin", // <- new default
 };
 
 type ConfigKeys = keyof typeof defaults;
@@ -37,7 +38,7 @@ if (fs.existsSync(CONFIG_PATH)) {
 export const BTC_TICKERS = {
   regtest: "rBTC",
   testnet: "tBTC",
-  mainnet: "BTC",
+  bitcoin: "BTC",
 } as const;
 
 export const FEERATE_OVERRIDE = Number(

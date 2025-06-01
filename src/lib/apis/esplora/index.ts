@@ -57,7 +57,9 @@ export async function esplora_getutxos(
     );
   }
 
-  const utxos: Omit<EsploraUtxo, "prevtx_hex">[] = await res.json();
+  const utxos: Omit<EsploraUtxo, "prevtx_hex">[] = (await res.json()).filter(
+    (utxo: EsploraUtxo) => utxo.status.confirmed
+  );
 
   // 1. Deduplicate txids
   const uniqueTxids = [...new Set(utxos.map((u) => u.txid))];
